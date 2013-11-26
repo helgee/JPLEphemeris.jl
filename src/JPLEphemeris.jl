@@ -2,150 +2,128 @@ module JPLEphemeris
 
 using HDF5, JLD
 
-export PLANETS
-export readascii
+export Ephemeris
+export position, velocity, state
 
 type Ephemeris
     fid::JLD.JldFile
     startepoch::Float64
     finalepoch::Float64
-    index::Vector{Vector{Float64}}
+    dtable::Vector{Vector{Float64}}
+    intervall::Vector{Float64}
+    cache::Dict{Float64, Matrix{Float64}}
+    constants::Dict{String, Float64}
 
     function Ephemeris(file::String)
         fid = jldopen(file, "r")
         startepoch = read(fid, "startepoch")
         finalepoch = read(fid, "finalepoch")
-        index = read(fid, "index")
-        return new(fid, startepoch, finalepoch, index)
+        dtable = read(fid, "dtable")
+        intervall = read(fid, "intervall")
+        cache = Dict{Float64, Matrix{Float64}}()
+        sizehint(cache, maximum([length(dtable[i]) for i = 1:length(dtable)]))
+        constants = read(fid, "constants")
+        return new(fid, startepoch, finalepoch, dtable, intervall, cache, constants)
     end
 end
 
-const PLANETS = [
-    "Mercury",
-    "Venus",
-    "Earth-Moon Barycenter",
-    "Mars",
-    "Jupiter",
-    "Saturn",
-    "Uranus",
-    "Neptune",
-    "Pluto",
-    "Moon (geocentric)",
-    "Sun",
-    "Nutations",
-    "Librations",
-    ]
+const planets = [
+    "mercury"=>1,
+    "venus"=>2,
+    "earth"=>3,
+    "mars"=>4,
+    "jupiter"=>5,
+    "saturn"=>6,
+    "uranus"=>7,
+    "neptune"=>8,
+    "pluto"=>9,
+    "moon"=>10,
+    "sun"=>11,
+    "nutations"=>12,
+    "librations"=>13,
+]
 
-function readascii{T<:String}(header::String, datafiles::Vector{T}, outfile::String)
-    startepoch = 0.0
-    finalepoch = 0.0
-    ncoeff = 0
-    constantnames = String[]
-    constantvalues = Float64[]
-    ind = zeros(Int64,3,13)
-    index = Array(Vector{Float64},13)
-    for i = 1:13
-        index[i] = Float64[]
+function position(ephem::Ephemeris, body::String, date::Float64)
+    i = planets[body]
+    if (date < ephem.startepoch) | (date > ephem.finalepoch)
+        error("The date must be between $(ephem.startepoch) and
+        $(ephem.finalepoch).")
     end
-
-    # Parse header file
-    l = open(readlines, header)
-    ncoeff = int(split(l[1])[4])
-    for i = 1:length(l)
-        if beginswith(l[i], "GROUP   1030")
-            startepoch, finalepoch = split(l[i+2])[1:2]
-        elseif beginswith(l[i], "GROUP   1040")
-            n = int(l[i+2])
-            firstline = i+3
-            lastline = i+3+div(n,10)
-            for j = firstline:lastline
-                append!(constantnames, split(l[j]))
-            end
-        elseif beginswith(l[i], "GROUP   1041")
-            n = int(l[i+2])
-            firstline = i+3
-            lastline = i+3+div(n,3)
-            for j = firstline:lastline
-                append!(constantvalues, float(split(replace(l[j],"D","e"))))
-            end
-        elseif beginswith(l[i], "GROUP   1050")
-            firstline = i+2
-            lastline = i+4
-            for j = firstline:lastline
-                ind[j-firstline+1,:] = int(split(l[j]))
-            end
-        end
-    end
-    constants = Dict(constantnames, constantvalues)
-
-    # Save data to JLD file
-    file = jldopen(outfile, "w")
-    try
-        @write file constants
-        @write file startepoch
-        @write file finalepoch
-        # Parse data files
-        for i = 1:length(datafiles)
-            parsedatafile(datafiles[i], ncoeff, ind, index, file)
-        end
-        for i = 1:length(index)
-            sort!(index[i])
-        end
-        @write file index
-    finally
-        close(file)
-    end
+    c = coefficients(ephem, i, date)
+    return pos(c...)
 end
 
-function parsedatafile(datafile, ncoeff, ind, index, file)
-    intervall = r"^\s+[0-9]+\s+[0-9]+"
-    coeff = Float64[]
-    l = open(readlines, datafile)
-    for i = 1:length(l)
-        if ismatch(intervall, l[i])
-            date, finaldate = float(split(replace(l[i+1],"D","e"))[1:2])
-            firstline = i+1
-            lastline = i+iceil(ncoeff/3)
-            for j = firstline:lastline
-                append!(coeff, float(split(replace(l[j],"D","e"))))
-            end
-            for j = 1:13
-                if ~in(date, index[j]) 
-                    push!(index[j], date)
-                elseif in(date, index[j]) 
-                    continue
-                end
-                if j == 12
-                    n = 2
-                else
-                    n = 3
-                end
-                offset = ind[2,j]*n
-                i1 = ind[1,j]
-                i2 = i1 + offset - 1
-                write(file, "$j-$date", reshape(coeff[i1:i2], ind[2,j], n))
-                if ind[3,j] != 1
-                    dt = (finaldate - date)/ind[3,j]
-                    for k = 1:ind[3,j]-1
-                        date1 = date + dt*k
-                        push!(index[j], date1)
-                        i1k = i1 + k*offset
-                        i2k = i1 + (k+1)*offset - 1
-                        write(file, "$j-$date1",
-                            reshape(coeff[i1k:i2k], ind[2,j], n))
-                    end
-                end
-            end
-        end
+function velocity(ephem::Ephemeris, body::String, date::Float64)
+    i = planets[body]
+    if (date < ephem.startepoch) | (date > ephem.finalepoch)
+        error("The date must be between $(ephem.startepoch) and
+        $(ephem.finalepoch).")
     end
+    c = coefficients(ephem, i, date)
+    return vel(c...)
 end
 
-function poly(a::Vector, x::Float64)
-    y = 0.0
-    for i = 1:length(a)
-        y += a[i]*x^i
+function state(ephem::Ephemeris, body::String, date::Float64)
+    i = planets[body]
+    if (date < ephem.startepoch) | (date > ephem.finalepoch)
+        error("The date must be between $(ephem.startepoch) and
+        $(ephem.finalepoch).")
     end
-    return y
+    c = coefficients(ephem, i, date)
+    return [pos(c...), vel(c...)]
 end
+
+function coefficients(ephem::Ephemeris, i::Int64, date::Float64)
+    dt = ephem.intervall[i]
+    if date == ephem.finalepoch
+        frac = dt
+        d = ephem.dtable[i][end]
+    else
+        index, frac = divrem(date-ephem.startepoch, dt)
+        index = int(index) + 1
+        d = ephem.dtable[i][index] 
+    end
+
+    # Check if the requested coeffcients are already cached,
+    # if not retrieve them from the HDF5 file.
+    if ~haskey(ephem.cache, d)
+        merge!(ephem.cache, [d=>read(ephem.fid, "$i-$d")])
+    end
+    c = ephem.cache[d]
+    x = similar(c, size(c)[1])
+
+    # Normalized Chebyshev time
+    tc = 2.0 * frac/dt - 1.0
+    x[1] = 1
+    x[2] = tc
+    twotc = tc + tc
+    for i = 3:length(x)
+        x[i] = twotc*x[i-1] - x[i-2]
+    end
+    return c, x, dt, twotc
+end
+
+function pos(c, x, dt, twotc)
+    return c'*x
+end
+
+function vel(c, x, dt, twotc)
+    t = similar(x, length(x))
+    t[1] = 0.0
+    t[2] = 1.0
+    t[3] = twotc + twotc
+    for i = 4:length(t)
+        t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
+    end
+    t *= 2.0
+    t /= dt
+    return c'*t
+end
+
+function close(ephem::Ephemeris)
+    close(ephem.fid)
+end
+
+include("parser.jl")
 
 end
