@@ -11,7 +11,7 @@ type Ephemeris
     finalepoch::Float64
     dtable::Vector{Vector{Float64}}
     intervall::Vector{Float64}
-    cache::Dict{Float64, Matrix{Float64}}
+    cache::Dict{String, Matrix{Float64}}
     constants::Dict{String, Float64}
 
     function Ephemeris(file::String)
@@ -20,7 +20,7 @@ type Ephemeris
         finalepoch = read(fid, "finalepoch")
         dtable = read(fid, "dtable")
         intervall = read(fid, "intervall")
-        cache = Dict{Float64, Matrix{Float64}}()
+        cache = Dict{String, Matrix{Float64}}()
         sizehint(cache, maximum([length(dtable[i]) for i = 1:length(dtable)]))
         constants = read(fid, "constants")
         return new(fid, startepoch, finalepoch, dtable, intervall, cache, constants)
@@ -53,6 +53,15 @@ function position(ephem::Ephemeris, body::String, date::Float64)
     return pos(c...)
 end
 
+function position(ephem::Ephemeris, body::String, date::Vector{Float64})
+    n = body == "nutations" ? 2 : 3
+    p = zeros(Float64, n, length(date))
+    for (i,d) in enumerate(date)
+        p[:,i] = position(ephem, body, d)
+    end
+    return p
+end
+
 function velocity(ephem::Ephemeris, body::String, date::Float64)
     i = planets[body]
     if (date < ephem.startepoch) | (date > ephem.finalepoch)
@@ -63,33 +72,52 @@ function velocity(ephem::Ephemeris, body::String, date::Float64)
     return vel(c...)
 end
 
+function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
+    n = body == "nutations" ? 2 : 3
+    v = zeros(Float64, n, length(date))
+    for (i,d) in enumerate(date)
+        v[:,i] = velocity(ephem, body, d)
+    end
+    return v
+end
+
 function state(ephem::Ephemeris, body::String, date::Float64)
-    i = planets[body]
+    nbody = planets[body]
     if (date < ephem.startepoch) | (date > ephem.finalepoch)
         error("The date must be between $(ephem.startepoch) and
         $(ephem.finalepoch).")
     end
-    c = coefficients(ephem, i, date)
+    c = coefficients(ephem, nbody, date)
     return [pos(c...), vel(c...)]
 end
 
-function coefficients(ephem::Ephemeris, i::Int64, date::Float64)
-    dt = ephem.intervall[i]
+function state(ephem::Ephemeris, body::String, date::Vector{Float64})
+    n = body == "nutations" ? 4 : 6
+    s = zeros(Float64, n, length(date))
+    for (i,d) in enumerate(date)
+        s[:,i] = state(ephem, body, d)
+    end
+    return s
+end
+
+function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
+    dt = ephem.intervall[nbody]
     if date == ephem.finalepoch
         frac = dt
-        d = ephem.dtable[i][end]
+        d = ephem.dtable[nbody][end]
     else
         index, frac = divrem(date-ephem.startepoch, dt)
         index = int(index) + 1
-        d = ephem.dtable[i][index] 
+        d = ephem.dtable[nbody][index] 
     end
 
     # Check if the requested coeffcients are already cached,
     # if not retrieve them from the HDF5 file.
-    if ~haskey(ephem.cache, d)
-        merge!(ephem.cache, [d=>read(ephem.fid, "$i-$d")])
+    key = "$nbody-$d"
+    if ~haskey(ephem.cache, key)
+        merge!(ephem.cache, [key=>read(ephem.fid, key)])
     end
-    c = ephem.cache[d]
+    c = ephem.cache[key]
     x = similar(c, size(c)[1])
 
     # Normalized Chebyshev time
