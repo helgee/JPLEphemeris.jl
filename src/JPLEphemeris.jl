@@ -3,7 +3,7 @@ module JPLEphemeris
 using HDF5, JLD
 
 export Ephemeris
-export position, velocity, state
+export position, velocity, state, close
 
 type Ephemeris
     fid::JLD.JldFile
@@ -21,16 +21,22 @@ type Ephemeris
         dtable = read(fid, "dtable")
         intervall = read(fid, "intervall")
         cache = Dict{String, Matrix{Float64}}()
-        sizehint(cache, maximum([length(dtable[i]) for i = 1:length(dtable)]))
+        sizehint(cache, mapreduce(length, +, dtable))
         constants = read(fid, "constants")
+        merge!(constants, ["earthshare"=>1.0/(1.0+constants["EMRAT"]),
+        "moonshare"=>constants["EMRAT"]/(1.0+constants["EMRAT"])])
         return new(fid, startepoch, finalepoch, dtable, intervall, cache, constants)
     end
+end
+
+function Ephemeris()
+    return Ephemeris("$(Pkg.dir())/JPLEphemeris/deps/$STANDARD_EPHEMERIS.jld")
 end
 
 const planets = [
     "mercury"=>1,
     "venus"=>2,
-    "earth"=>3,
+    "earthmoon"=>3,
     "mars"=>4,
     "jupiter"=>5,
     "saturn"=>6,
@@ -43,19 +49,18 @@ const planets = [
     "librations"=>13,
 ]
 
+const STANDARD_EPHEMERIS = "de421"
+
 function position(ephem::Ephemeris, body::String, date::Float64)
     i = planets[body]
-    if (date < ephem.startepoch) | (date > ephem.finalepoch)
-        error("The date must be between $(ephem.startepoch) and
-        $(ephem.finalepoch).")
-    end
+    checkdate(ephem, date)
     c = coefficients(ephem, i, date)
-    return pos(c...)
+    return position(c...)
 end
 
 function position(ephem::Ephemeris, body::String, date::Vector{Float64})
     n = body == "nutations" ? 2 : 3
-    p = zeros(Float64, n, length(date))
+    p = zeros(n, length(date))
     for (i,d) in enumerate(date)
         p[:,i] = position(ephem, body, d)
     end
@@ -64,17 +69,14 @@ end
 
 function velocity(ephem::Ephemeris, body::String, date::Float64)
     i = planets[body]
-    if (date < ephem.startepoch) | (date > ephem.finalepoch)
-        error("The date must be between $(ephem.startepoch) and
-        $(ephem.finalepoch).")
-    end
+    checkdate(ephem, date)
     c = coefficients(ephem, i, date)
-    return vel(c...)
+    return velocity(c...)
 end
 
 function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
     n = body == "nutations" ? 2 : 3
-    v = zeros(Float64, n, length(date))
+    v = zeros(n, length(date))
     for (i,d) in enumerate(date)
         v[:,i] = velocity(ephem, body, d)
     end
@@ -83,21 +85,25 @@ end
 
 function state(ephem::Ephemeris, body::String, date::Float64)
     nbody = planets[body]
-    if (date < ephem.startepoch) | (date > ephem.finalepoch)
-        error("The date must be between $(ephem.startepoch) and
-        $(ephem.finalepoch).")
-    end
+    checkdate(ephem, date)
     c = coefficients(ephem, nbody, date)
-    return [pos(c...), vel(c...)]
+    return [position(c...), velocity(c...)]
 end
 
 function state(ephem::Ephemeris, body::String, date::Vector{Float64})
     n = body == "nutations" ? 4 : 6
-    s = zeros(Float64, n, length(date))
+    s = zeros(n, length(date))
     for (i,d) in enumerate(date)
         s[:,i] = state(ephem, body, d)
     end
     return s
+end
+
+function checkdate(ephem::Ephemeris, date::Float64)
+    if (date < ephem.startepoch) | (date > ephem.finalepoch)
+        error("The date must be between $(ephem.startepoch) and
+        $(ephem.finalepoch).")
+    end
 end
 
 function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
@@ -118,7 +124,7 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
         merge!(ephem.cache, [key=>read(ephem.fid, key)])
     end
     c = ephem.cache[key]
-    x = similar(c, size(c)[1])
+    x = zeros(size(c)[1])
 
     # Normalized Chebyshev time
     tc = 2.0 * frac/dt - 1.0
@@ -131,13 +137,14 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
     return c, x, dt, twotc
 end
 
-function pos(c, x, dt, twotc)
+function position(c::Matrix{Float64}, x::Vector{Float64},
+    dt::Float64, twotc::Float64)
     return c'*x
 end
 
-function vel(c, x, dt, twotc)
-    t = similar(x, length(x))
-    t[1] = 0.0
+function velocity(c::Matrix{Float64}, x::Vector{Float64},
+    dt::Float64, twotc::Float64)
+    t = zeros(length(x))
     t[2] = 1.0
     t[3] = twotc + twotc
     for i = 4:length(t)
