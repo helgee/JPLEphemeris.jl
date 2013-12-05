@@ -3,7 +3,13 @@ module JPLEphemeris
 using HDF5, JLD
 
 export Ephemeris
-export position, velocity, state, close
+export position, velocity, state, close, build, remove
+
+import JLD.close
+
+const STANDARD_EPHEMERIS = "430"
+const PATH = "$(Pkg.dir())/JPLEphemeris/deps"
+
 
 type Ephemeris
     fid::JLD.JldFile
@@ -30,7 +36,15 @@ type Ephemeris
 end
 
 function Ephemeris()
-    return Ephemeris("$(Pkg.dir())/JPLEphemeris/deps/$STANDARD_EPHEMERIS.jld")
+    return Ephemeris("$PATH/de$STANDARD_EPHEMERIS.jld")
+end
+
+function Ephemeris(denum::Integer)
+    if isfile("$PATH/de$denum.jld")
+        return Ephemeris("$PATH/de$denum.jld")
+    else
+        error("Ephemeris file '$PATH/de$denum.jld' not found.")
+    end
 end
 
 const planets = [
@@ -49,7 +63,6 @@ const planets = [
     "librations"=>13,
 ]
 
-const STANDARD_EPHEMERIS = "de421"
 
 function position(ephem::Ephemeris, body::String, date::Float64)
     i = planets[body]
@@ -65,6 +78,10 @@ function position(ephem::Ephemeris, body::String, date::Vector{Float64})
         p[:,i] = position(ephem, body, d)
     end
     return p
+end
+
+function position(ephem::Ephemeris, body::String, date::Ranges{Float64})
+    return position(ephem, body, [date])
 end
 
 function velocity(ephem::Ephemeris, body::String, date::Float64)
@@ -83,6 +100,10 @@ function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
     return v
 end
 
+function velocity(ephem::Ephemeris, body::String, date::Ranges{Float64})
+    return velocity(ephem, body, [date])
+end
+
 function state(ephem::Ephemeris, body::String, date::Float64)
     nbody = planets[body]
     checkdate(ephem, date)
@@ -97,6 +118,10 @@ function state(ephem::Ephemeris, body::String, date::Vector{Float64})
         s[:,i] = state(ephem, body, d)
     end
     return s
+end
+
+function state(ephem::Ephemeris, body::String, date::Ranges{Float64})
+    return state(ephem, body, [date])
 end
 
 function checkdate(ephem::Ephemeris, date::Float64)
@@ -118,7 +143,7 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
     end
 
     # Check if the requested coeffcients are already cached,
-    # if not retrieve them from the HDF5 file.
+    # if not retrieve them from the JLD file.
     key = "$nbody-$d"
     if ~haskey(ephem.cache, key)
         merge!(ephem.cache, [key=>read(ephem.fid, key)])
@@ -159,6 +184,6 @@ function close(ephem::Ephemeris)
     close(ephem.fid)
 end
 
-include("parser.jl")
+include("util.jl")
 
 end
