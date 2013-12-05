@@ -15,5 +15,5 @@ script:
     - julia -e 'versioninfo(); Pkg.init(); Pkg.add("HDF5")'
     - mkdir -p ~/.julia/JPLEphemeris
     - cp -R ./* ~/.julia/JPLEphemeris/
-    - julia -e 'using JPLEphemeris; for d in JPLEphemeris.denums; build(d); end'
+    - julia -e 'using JPLEphemeris; for d in ["430","421","405"]; build(d); end'
     - julia ~/.julia/JPLEphemeris/test/test.jl
