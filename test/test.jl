@@ -24,13 +24,13 @@ function testephemeris(ephem::Ephemeris)
                 r = (tr - cr)/ephem.constants["AU"]
             end
 
-            println("Date: $date")
-            println("Julian day: $jd")
-            println("Target: $target")
-            println("Center: $center")
-            println("Orginal value: $value")
-            println("Computed value: $(r[index])")
-            println("===========================================")
+            #println("Date: $date")
+            #println("Julian day: $jd")
+            #println("Target: $target")
+            #println("Center: $center")
+            #println("Orginal value: $value")
+            #println("Computed value: $(r[index])")
+            #println("===========================================")
 
             if target == 15 && index == 3
                 delta = (r[index] - value)/(0.23*(jd - 2451545.0))
