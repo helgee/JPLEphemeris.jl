@@ -1,6 +1,6 @@
 ftp = "ftp://ssd.jpl.nasa.gov/pub/eph/planets/ascii"
 denums = ["431","430","424","423","422","421","418","414","413","410","406","405","403","202","200","102"]
-headers = Dict(denums[3:],["header.$d" for d in denums[3:]])
+headers = Dict(denums[3:end],["header.$d" for d in denums[3:end]])
 merge!(headers, ["431"=>"header.431_572","430"=>"header.430_572"])
 
 datafiles = ["430"=>["ascp$i.430" for i = 1550:100:2550],
