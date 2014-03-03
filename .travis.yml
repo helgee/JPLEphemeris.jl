@@ -14,4 +14,4 @@ before_install:
 script:
     - julia -e 'versioninfo(); Pkg.init(); Pkg.add("HDF5"); Pkg.clone(pwd()); Pkg.checkout("JPLEphemeris")'
     - julia -e 'using JPLEphemeris; for d in ["430","421","405"]; build(d); end'
-    - julia ~/.julia/JPLEphemeris/test/test.jl
+    - julia ./test/test.jl
