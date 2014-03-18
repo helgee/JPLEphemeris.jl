@@ -21,7 +21,7 @@ datafiles = ["430"=>["ascp$i.430" for i = 1550:100:2550],
 "102"=>[[@sprintf("ascm%04d.102", i) for i = 200:300:1400], [@sprintf("ascp%04d.102", i) for i = 100:300:2800]]]
 
 function download(ftp, file, out)
-    errorstring = "\nPlease download all files from '$ftp' manually, place them in '$PATH' and re-run 'build'.\n"
+    errorstring = "\nPlease download all files from '$ftp' manually, place them in '$PATH' and re-run 'getephem'.\n"
     try
         if OS_NAME == :Windows
             run(`where curl`)
@@ -39,12 +39,15 @@ function download(ftp, file, out)
     end
 end
 
-function build(denum)
+function getephem(denum; force=false)
     denum = string(denum)
     if ~haskey(datafiles, denum)
         error("Unknown ephemeris 'DE$denum'.")
     end
     outfile = "$PATH/de$denum.jld"
+    if isfile(outfile) && force
+        rm(outfile)
+    end
     if ~isfile(outfile)
         testfile = "testpo.$denum"
         testlocal = "$PATH/$testfile"
@@ -53,14 +56,14 @@ function build(denum)
         data = datafiles[denum]
         datalocal = ["$PATH/$d" for d in data] 
         println("Building ephemeris DE$denum.")
-        if ~isfile("$PATH/$header")
+        if ~isfile("$PATH/$header") || force
             download("$ftp/de$denum", header, headerlocal)
         end
         if ~isfile("$PATH/$testfile")
             download("$ftp/de$denum", testfile, testlocal)
         end
         for (f,d) in zip(data, datalocal)
-            if ~isfile(d)
+            if ~isfile(d) || force
                 download("$ftp/de$denum", f, d)
             end
         end
@@ -73,7 +76,7 @@ function build(denum)
     end
 end
 
-function remove(denum)
+function rmephem(denum)
     rm("$PATH/de$denum.jld")
     rm("$PATH/testpo.$denum")
 end
