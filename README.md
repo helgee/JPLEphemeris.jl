@@ -71,19 +71,24 @@ Another example is shown in this IJulia [notebook][notebook].
 
 ### Adding Additional Ephemerides
 
-All ephemerides available [here][ftp] can be downloaded and converted automatically with the `build` command.
+All ephemerides available at ftp://ssd.jpl.nasa.gov/pub/eph/planets/ascii/ can be downloaded and converted automatically with the `getephem` command.
 
 ```julia
 using JPLEphemeris
 
 # e.g. DE421
-build(421)
+getephem(421)
 eph = Ephemeris(421)
 ```
 
-If CURL is not available the user will be prompted to fetch the files manually and to re-run `build` subsequently.
+If CURL is not available the user will be prompted to fetch the files manually and to re-run `getephem` subsequently.
+Should the build process fail, e.g. due to corrupted ASCII files, re-downloading of the data files can be forced via the `force` keyword parameter.
 
-Ephemeris files can be removed with `rm(421)`.
+```julia
+getephem(421, force=true)
+```
+
+Ephemeris files can be removed with `rmephem(421)`.
 
 ## Validation
 
@@ -96,5 +101,4 @@ Please use it if you need similar functionality in Python.
 [jpl]: http://en.wikipedia.org/wiki/Jet_Propulsion_Laboratory_Development_Ephemeris
 [jplephem]: https://github.com/brandon-rhodes/python-jplephem
 [jld]: https://github.com/timholy/HDF5.jl
-[ftp]: ftp://ssd.jpl.nasa.gov/pub/eph/planets/ascii/
 [notebook]: http://nbviewer.ipython.org/github/helgee/JPLEphemeris.jl/blob/master/JPLEphemeris-Earth_Mars-2014.ipynb
