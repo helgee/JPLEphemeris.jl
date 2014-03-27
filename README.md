@@ -95,10 +95,11 @@ Ephemeris files can be removed with `rmephem(421)`.
 The package's test suite uses test files provided by JPL to confirm that the results are correct for all installed ephemerides.
 
 ## Acknowlegements
-Most of this is based on the excellent [jplehem][jplephem] library by Brandon Rhodes.
+Most of this is based on the excellent [jplehem][jplephem] library by [Brandon Rhodes][br].
 Please use it if you need similar functionality in Python.
 
 [jpl]: http://en.wikipedia.org/wiki/Jet_Propulsion_Laboratory_Development_Ephemeris
 [jplephem]: https://github.com/brandon-rhodes/python-jplephem
 [jld]: https://github.com/timholy/HDF5.jl
 [notebook]: http://nbviewer.ipython.org/github/helgee/JPLEphemeris.jl/blob/master/JPLEphemeris-Earth_Mars-2014.ipynb
+[br]: https://github.com/brandon-rhodes
