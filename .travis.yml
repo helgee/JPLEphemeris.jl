@@ -13,5 +13,6 @@ before_install:
     - git config --global user.email "travis@example.net"
 script:
     - julia -e 'versioninfo(); Pkg.init(); Pkg.add("HDF5"); Pkg.clone(pwd()); Pkg.checkout("JPLEphemeris")'
-    - julia -e 'using JPLEphemeris; for d in ["430","421","405"]; getephem(d); end'
+    - julia -e 'Pkg.build()'
+    - julia -e 'using JPLEphemeris; for d in ["421","405"]; getephem(d); end'
     - julia ./test/test.jl
