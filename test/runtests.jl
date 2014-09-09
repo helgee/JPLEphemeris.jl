@@ -66,9 +66,11 @@ function state(ephem::Ephemeris, date::Float64, target::Int64)
 end
 
 path = "$(Pkg.dir())/JPLEphemeris/deps"
+files = readdir(path)
+length(files) < 2 && error("No ephemeris files installed.")
 
 # Run the JPL testsuite for every installed ephemeris.
-for f in readdir(path)
+for f in files
     file, ext = splitext(f)
     if ext == ".jld"
         eph = Ephemeris("$path/$f")
