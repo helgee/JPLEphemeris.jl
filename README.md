@@ -2,6 +2,7 @@ JPLEphemeris.jl
 ===============
 
 [![Build Status](https://travis-ci.org/helgee/JPLEphemeris.jl.png)](https://travis-ci.org/helgee/JPLEphemeris.jl)
+[![Coverage Status](https://img.shields.io/coveralls/helgee/JPLEphemeris.jl.svg)](https://coveralls.io/r/helgee/JPLEphemeris.jl)
 
 The [JPL Development Ephemerides][jpl] are the results of simulations of the Solar System used for spacecraft navigation and astronomical purposes. They are published as sets of Chebyshev polynomial coefficients with which the position and velocity of the Solar System's planets can be interpolated with high precision for all dates covered by the ephemeris.
 This package provides functionality to convert the data from the original ASCII tables to the HDF5-based [JLD format][jld] for efficient access and routines for the computation of the planet's state vectors directly from Julia.
