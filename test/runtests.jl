@@ -3,8 +3,9 @@ using Base.Test
 
 import JPLEphemeris.state
 
-function testephemeris(ephem::Ephemeris)
-    denum = int(ephem.constants["DENUM"])
+function testephemeris(ephem::Ephemeris, verbose=false)
+    denum = ephem.id
+    println("Testing ephemeris DE$denum.")
     if isfile("$path/testpo.$denum")
         lines = open(readlines, "$path/testpo.$denum")
     else
@@ -24,13 +25,15 @@ function testephemeris(ephem::Ephemeris)
                 r = (tr - cr)/ephem.constants["AU"]
             end
 
-            #println("Date: $date")
-            #println("Julian day: $jd")
-            #println("Target: $target")
-            #println("Center: $center")
-            #println("Orginal value: $value")
-            #println("Computed value: $(r[index])")
-            #println("===========================================")
+            if verbose
+                println("Date: $date")
+                println("Julian day: $jd")
+                println("Target: $target")
+                println("Center: $center")
+                println("Orginal value: $value")
+                println("Computed value: $(r[index])")
+                println("===========================================")
+            end
 
             if target == 15 && index == 3
                 delta = (r[index] - value)/(0.23*(jd - 2451545.0))
@@ -48,9 +51,9 @@ end
 function state(ephem::Ephemeris, date::Float64, target::Int64)
     s(body::String) = state(ephem, body, date)
 
-    planets = [1=>"mercury", 2=>"venus", 4=>"mars", 5=>"jupiter",
+    planets = Dict(1=>"mercury", 2=>"venus", 4=>"mars", 5=>"jupiter",
     6=>"saturn", 7=>"uranus", 8=>"neptune", 9=>"pluto", 11=>"sun",
-    14=>"nutations", 15=>"librations"]
+    14=>"nutations", 15=>"librations")
 
     if target == 3
         return s("earthmoon") - s("moon") * ephem.constants["earthshare"]
@@ -69,12 +72,17 @@ path = "$(Pkg.dir())/JPLEphemeris/deps"
 files = readdir(path)
 length(files) < 2 && error("No ephemeris files installed.")
 
+verbose = false
+if ~isempty(ARGS) && ((ARGS[1] == "-v") || (ARGS[1] == "--verbose"))
+    verbose = true
+end
+
 # Run the JPL testsuite for every installed ephemeris.
 for f in files
     file, ext = splitext(f)
     if ext == ".jld"
         eph = Ephemeris("$path/$f")
-        testephemeris(eph)
+        testephemeris(eph, verbose)
     end
 end
 

@@ -12,6 +12,7 @@ const PATH = "$(Pkg.dir())/JPLEphemeris/deps"
 
 
 type Ephemeris
+    id::Int
     fid::JLD.JldFile
     startepoch::Float64
     finalepoch::Float64
@@ -27,11 +28,12 @@ type Ephemeris
         dtable = read(fid, "dtable")
         intervall = read(fid, "intervall")
         cache = Dict{String, Matrix{Float64}}()
-        sizehint(cache, mapreduce(length, +, dtable))
+        sizehint!(cache, mapreduce(length, +, dtable))
         constants = read(fid, "constants")
-        merge!(constants, ["earthshare"=>1.0/(1.0+constants["EMRAT"]),
-        "moonshare"=>constants["EMRAT"]/(1.0+constants["EMRAT"])])
-        return new(fid, startepoch, finalepoch, dtable, intervall, cache, constants)
+        id = constants["DENUM"]
+        merge!(constants, Dict("earthshare"=>1.0/(1.0+constants["EMRAT"]),
+        "moonshare"=>constants["EMRAT"]/(1.0+constants["EMRAT"])))
+        return new(id, fid, startepoch, finalepoch, dtable, intervall, cache, constants)
     end
 end
 
@@ -47,7 +49,7 @@ function Ephemeris(denum::Integer)
     end
 end
 
-const planets = [
+const planets = Dict(
     "mercury"=>1,
     "venus"=>2,
     "earthmoon"=>3,
@@ -61,8 +63,7 @@ const planets = [
     "sun"=>11,
     "nutations"=>12,
     "librations"=>13,
-]
-
+)
 
 function position(ephem::Ephemeris, body::String, date::Float64)
     i = planets[body]
@@ -81,7 +82,7 @@ function position(ephem::Ephemeris, body::String, date::Vector{Float64})
 end
 
 function position(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return position(ephem, body, [date])
+    return position(ephem, body, [date;])
 end
 
 function velocity(ephem::Ephemeris, body::String, date::Float64)
@@ -101,14 +102,14 @@ function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
 end
 
 function velocity(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return velocity(ephem, body, [date])
+    return velocity(ephem, body, [date;])
 end
 
 function state(ephem::Ephemeris, body::String, date::Float64)
     nbody = planets[body]
     checkdate(ephem, date)
     c = coefficients(ephem, nbody, date)
-    return [position(c...), velocity(c...)]
+    return [position(c...); velocity(c...)]
 end
 
 function state(ephem::Ephemeris, body::String, date::Vector{Float64})
@@ -121,7 +122,7 @@ function state(ephem::Ephemeris, body::String, date::Vector{Float64})
 end
 
 function state(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return state(ephem, body, [date])
+    return state(ephem, body, [date;])
 end
 
 function checkdate(ephem::Ephemeris, date::Float64)
@@ -146,7 +147,7 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
     # if not retrieve them from the JLD file.
     key = "$nbody-$d"
     if ~haskey(ephem.cache, key)
-        merge!(ephem.cache, [key=>read(ephem.fid, key)])
+        merge!(ephem.cache, Dict(key=>read(ephem.fid, key)))
     end
     c = ephem.cache[key]
     x = zeros(size(c)[1])
