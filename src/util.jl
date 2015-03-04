@@ -221,6 +221,7 @@ function parsedatafile(datafile, ncoeff, ind, dtable, file)
                             reshape(coeff[i1k:i2k], ind[2,j], n))
                     end
                 end
+                flush(file.plain)
             end
             empty!(coeff)
         end
