@@ -136,7 +136,11 @@ function readascii(header, datafiles, outfile)
             firstline = i+2
             lastline = i+4
             for j = firstline:lastline
-                ind[j-firstline+1,:] = int(split(l[j]))
+                # The header of DE431 refers to 15 bodies instead of 13 as in the 
+                # other ephemerides. The file contains no coefficients for these
+                # additional bodies though. Therefore only the first 13 indices
+                # are used.
+                ind[j-firstline+1,:] = int(split(l[j]))[1:13]
             end
         end
     end
