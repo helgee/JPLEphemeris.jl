@@ -238,7 +238,6 @@ function savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
                 end
             end
         end
-        flush(file.plain)
     end
     empty!(coeff)
 end
