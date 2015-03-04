@@ -57,7 +57,7 @@ function download(ftp, file, out)
     end
 end
 
-function getephem(denum; force=false)
+function getephem(denum; force=false, debug=false)
     denum = string(denum)
     if ~haskey(datafiles, denum)
         error("Unknown ephemeris 'DE$denum'.")
@@ -86,10 +86,12 @@ function getephem(denum; force=false)
             end
         end
         readascii(headerlocal, datalocal, outfile)
-        println("Removing ASCII files.")
-        rm(headerlocal)
-        for f in datalocal
-            rm(f)
+        if ~debug
+            println("Removing ASCII files.")
+            rm(headerlocal)
+            for f in datalocal
+                rm(f)
+            end
         end
     end
 end
@@ -146,28 +148,32 @@ function readascii(header, datafiles, outfile)
     end
     constants = Dict(zip(constantnames, constantvalues))
 
-    file = jldopen(outfile, "w")
+    #= file = jldopen(outfile, "w") =#
     try
-        @write file constants
-        @write file startepoch
-        @write file finalepoch
-        @write file ind
+        jldopen(outfile, "w") do file
+            @write file constants
+            @write file startepoch
+            @write file finalepoch
+            @write file ind
+        end
         for i = 1:length(datafiles)
             println("Parsing data file $i/$(length(datafiles)).")
-            parsedatafile(datafiles[i], ncoeff, ind, dtable, file)
+            parsedatafile(datafiles[i], ncoeff, ind, dtable, outfile)
         end
         for i = 1:length(dtable)
             sort!(dtable[i])
             intervall[i] = dtable[i][2] - dtable[i][1]
         end
-        @write file dtable
-        @write file intervall
+        jldopen(outfile, "r+") do file
+            @write file dtable
+            @write file intervall
+        end
     catch
-        close(file)
+        #= close(file) =#
         rm(outfile)
         rethrow()
-    finally
-        close(file)
+    #= finally =#
+    #=     close(file) =#
     end
 end
 
@@ -175,7 +181,7 @@ function fromfortran(l)
     return float(split(replace(l, "D", "e")))
 end
 
-function parsedatafile(datafile, ncoeff, ind, dtable, file)
+function parsedatafile(datafile, ncoeff, ind, dtable, outfile)
     coeff = Float64[]
     header = r"^\s+[0-9]+\s+[0-9]+"
     f = open(datafile, "r")
@@ -195,12 +201,12 @@ function parsedatafile(datafile, ncoeff, ind, dtable, file)
                     break
                 end
             end
-            savecoeff!(coeff, date, finaldate, ind, dtable, file)
+            savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
         end
     end
 end
 
-function savecoeff!(coeff, date, finaldate, ind, dtable, file)
+function savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
     for j = 1:13
         dt = (finaldate - date)/ind[3,j]
         if ~in(date, dtable[j]) 
@@ -216,7 +222,9 @@ function savecoeff!(coeff, date, finaldate, ind, dtable, file)
         offset = ind[2,j]*n
         i1 = ind[1,j] - 2
         i2 = i1 + offset - 1
-        write(file, "$j-$date", reshape(coeff[i1:i2], ind[2,j], n))
+        jldopen(outfile, "r+") do file
+            write(file, "$j-$date", reshape(coeff[i1:i2], ind[2,j], n))
+        end
         if ind[3,j] != 1
             dt = (finaldate - date)/ind[3,j]
             for k = 1:ind[3,j]-1
@@ -224,8 +232,10 @@ function savecoeff!(coeff, date, finaldate, ind, dtable, file)
                 push!(dtable[j], date1)
                 i1k = i1 + k*offset
                 i2k = i1 + (k+1)*offset - 1
-                write(file, "$j-$date1",
-                    reshape(coeff[i1k:i2k], ind[2,j], n))
+                jldopen(outfile, "r+") do file
+                    write(file, "$j-$date1",
+                        reshape(coeff[i1k:i2k], ind[2,j], n))
+                end
             end
         end
         flush(file.plain)
