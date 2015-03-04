@@ -194,36 +194,40 @@ function parsedatafile(datafile, ncoeff, ind, dtable, file)
                     break
                 end
             end
-            for j = 1:13
-                dt = (finaldate - date)/ind[3,j]
-                if ~in(date, dtable[j]) 
-                    push!(dtable[j], date)
-                elseif in(date, dtable[j]) 
-                    continue
-                end
-                if j == 12
-                    n = 2
-                else
-                    n = 3
-                end
-                offset = ind[2,j]*n
-                i1 = ind[1,j] - 2
-                i2 = i1 + offset - 1
-                write(file, "$j-$date", reshape(coeff[i1:i2], ind[2,j], n))
-                if ind[3,j] != 1
-                    dt = (finaldate - date)/ind[3,j]
-                    for k = 1:ind[3,j]-1
-                        date1 = date + dt*k
-                        push!(dtable[j], date1)
-                        i1k = i1 + k*offset
-                        i2k = i1 + (k+1)*offset - 1
-                        write(file, "$j-$date1",
-                            reshape(coeff[i1k:i2k], ind[2,j], n))
-                    end
-                end
-                flush(file.plain)
-            end
-            empty!(coeff)
+            savecoeff!(coeff, date, finaldate, ind, dtable, file)
         end
     end
+end
+
+function savecoeff!(coeff, date, finaldate, ind, dtable, file)
+    for j = 1:13
+        dt = (finaldate - date)/ind[3,j]
+        if ~in(date, dtable[j]) 
+            push!(dtable[j], date)
+        elseif in(date, dtable[j]) 
+            continue
+        end
+        if j == 12
+            n = 2
+        else
+            n = 3
+        end
+        offset = ind[2,j]*n
+        i1 = ind[1,j] - 2
+        i2 = i1 + offset - 1
+        write(file, "$j-$date", reshape(coeff[i1:i2], ind[2,j], n))
+        if ind[3,j] != 1
+            dt = (finaldate - date)/ind[3,j]
+            for k = 1:ind[3,j]-1
+                date1 = date + dt*k
+                push!(dtable[j], date1)
+                i1k = i1 + k*offset
+                i2k = i1 + (k+1)*offset - 1
+                write(file, "$j-$date1",
+                    reshape(coeff[i1k:i2k], ind[2,j], n))
+            end
+        end
+        flush(file.plain)
+    end
+    empty!(coeff)
 end
