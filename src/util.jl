@@ -105,7 +105,7 @@ function readascii(header, datafiles, outfile)
     startepoch = 0.0
     finalepoch = 0.0
     ncoeff = 0
-    constantnames = String[]
+    constantnames = AbstractString[]
     constantvalues = Float64[]
     ind = zeros(Int64,3,13)
     intervall = zeros(13)
@@ -116,19 +116,19 @@ function readascii(header, datafiles, outfile)
 
     println("Parsing header file.")
     l = open(readlines, header)
-    ncoeff = int(split(l[1])[4])
+    ncoeff = parse(Int,(split(l[1])[4]))
     for i = 1:length(l)
         if startswith(l[i], "GROUP   1030")
             startepoch, finalepoch = float(split(l[i+2])[1:2])
         elseif startswith(l[i], "GROUP   1040")
-            n = int(l[i+2])
+            n = parse(Int,(l[i+2]))
             firstline = i+3
             lastline = i+3+div(n,10)
             for j = firstline:lastline
                 append!(constantnames, split(l[j]))
             end
         elseif startswith(l[i], "GROUP   1041")
-            n = int(l[i+2])
+            n = parse(Int,(l[i+2]))
             firstline = i+3
             lastline = i+3+div(n,3)
             for j = firstline:lastline
@@ -142,7 +142,7 @@ function readascii(header, datafiles, outfile)
                 # other ephemerides. The file contains no coefficients for these
                 # additional bodies though. Therefore only the first 13 indices
                 # are used.
-                ind[j-firstline+1,:] = int(split(l[j]))[1:13]
+                ind[j-firstline+1,:] = parse(Int,split(l[j])[1:13])
             end
         end
     end
