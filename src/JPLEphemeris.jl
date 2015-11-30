@@ -139,7 +139,7 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
         d = ephem.dtable[nbody][end]
     else
         index, frac = divrem(date-ephem.startepoch, dt)
-        index = int(index) + 1
+        index = round(Int,(index) + 1)
         d = ephem.dtable[nbody][index] 
     end
 
