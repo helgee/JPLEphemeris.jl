@@ -105,7 +105,7 @@ function readascii(header, datafiles, outfile)
     startepoch = 0.0
     finalepoch = 0.0
     ncoeff = 0
-    constantnames = String[]
+    constantnames = AbstractString[]
     constantvalues = Float64[]
     ind = zeros(Int64,3,13)
     intervall = zeros(13)
