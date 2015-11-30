@@ -72,17 +72,13 @@ function position(ephem::Ephemeris, body::AbstractString, date::Float64)
     return position(c...)
 end
 
-function position(ephem::Ephemeris, body::AbstractString, date::Vector{Float64})
+function position(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 2 : 3
     p = zeros(n, length(date))
     for (i,d) in enumerate(date)
         p[:,i] = position(ephem, body, d)
     end
     return p
-end
-
-function position(ephem::Ephemeris, body::AbstractString, date::Range{Float64})
-    return position(ephem, body, [date;])
 end
 
 function velocity(ephem::Ephemeris, body::AbstractString, date::Float64)
@@ -92,17 +88,13 @@ function velocity(ephem::Ephemeris, body::AbstractString, date::Float64)
     return velocity(c...)
 end
 
-function velocity(ephem::Ephemeris, body::AbstractString, date::Vector{Float64})
+function velocity(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 2 : 3
     v = zeros(n, length(date))
     for (i,d) in enumerate(date)
         v[:,i] = velocity(ephem, body, d)
     end
     return v
-end
-
-function velocity(ephem::Ephemeris, body::AbstractString, date::Range{Float64})
-    return velocity(ephem, body, [date;])
 end
 
 function state(ephem::Ephemeris, body::AbstractString, date::Float64)
@@ -112,17 +104,13 @@ function state(ephem::Ephemeris, body::AbstractString, date::Float64)
     return [position(c...); velocity(c...)]
 end
 
-function state(ephem::Ephemeris, body::AbstractString, date::Vector{Float64})
+function state(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 4 : 6
     s = zeros(n, length(date))
     for (i,d) in enumerate(date)
         s[:,i] = state(ephem, body, d)
     end
     return s
-end
-
-function state(ephem::Ephemeris, body::AbstractString, date::Range{Float64})
-    return state(ephem, body, [date;])
 end
 
 function checkdate(ephem::Ephemeris, date::Float64)
