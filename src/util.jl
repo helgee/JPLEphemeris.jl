@@ -142,7 +142,7 @@ function readascii(header, datafiles, outfile)
                 # other ephemerides. The file contains no coefficients for these
                 # additional bodies though. Therefore only the first 13 indices
                 # are used.
-                ind[j-firstline+1,:] = parse(Int,split(l[j])[1:13])
+                ind[j-firstline+1,:] = [parse(Int,s) for s=split(l[j])[1:13]]
             end
         end
     end
