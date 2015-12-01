@@ -2,6 +2,8 @@ module JPLEphemeris
 
 using HDF5, JLD
 
+import Base.position
+
 export Ephemeris, STANDARD_EPHEMERIS
 export position, velocity, state, close, getephem, rmephem
 
