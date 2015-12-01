@@ -1,6 +1,6 @@
 module JPLEphemeris
 
-using HDF5, JLD
+using HDF5, JLD, ProgressMeter
 
 import Base.position
 

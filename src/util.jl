@@ -185,11 +185,15 @@ function parsedatafile(datafile, ncoeff, ind, dtable, outfile)
     coeff = Float64[]
     header = r"^\s+[0-9]+\s+[0-9]+"
     f = open(datafile, "r")
+    seekend(f)
+    filesize = Base.position(f)
+    seekstart(f)
+    p = Progress(filesize,1,"Processing coefficients...",50)
     while ~eof(f)
         l = readline(f)
         if ismatch(header, l)
             date, finaldate, c = fromfortran(readline(f))
-            println("Processing coefficients for $date-$finaldate.")
+            #println("Processing coefficients for $date-$finaldate.")
             push!(coeff, c)
             while ~eof(f)
                 mark(f)
@@ -203,6 +207,7 @@ function parsedatafile(datafile, ncoeff, ind, dtable, outfile)
             end
             savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
         end
+        update!(p, Base.position(f))
     end
 end
 
