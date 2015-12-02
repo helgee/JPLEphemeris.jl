@@ -1,6 +1,8 @@
 module JPLEphemeris
 
-using HDF5, JLD
+using HDF5, JLD, ProgressMeter
+
+import Base.position
 
 export Ephemeris, STANDARD_EPHEMERIS
 export position, velocity, state, close, getephem, rmephem
@@ -18,16 +20,16 @@ type Ephemeris
     finalepoch::Float64
     dtable::Vector{Vector{Float64}}
     intervall::Vector{Float64}
-    cache::Dict{String, Matrix{Float64}}
-    constants::Dict{String, Float64}
+    cache::Dict{AbstractString, Matrix{Float64}}
+    constants::Dict{AbstractString, Float64}
 
-    function Ephemeris(file::String)
+    function Ephemeris(file::AbstractString)
         fid = jldopen(file, "r")
         startepoch = read(fid, "startepoch")
         finalepoch = read(fid, "finalepoch")
         dtable = read(fid, "dtable")
         intervall = read(fid, "intervall")
-        cache = Dict{String, Matrix{Float64}}()
+        cache = Dict{AbstractString, Matrix{Float64}}()
         sizehint!(cache, mapreduce(length, +, dtable))
         constants = read(fid, "constants")
         id = constants["DENUM"]
@@ -65,14 +67,14 @@ const planets = Dict(
     "librations"=>13,
 )
 
-function position(ephem::Ephemeris, body::String, date::Float64)
+function position(ephem::Ephemeris, body::AbstractString, date::Float64)
     i = planets[body]
     checkdate(ephem, date)
     c = coefficients(ephem, i, date)
     return position(c...)
 end
 
-function position(ephem::Ephemeris, body::String, date::Vector{Float64})
+function position(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 2 : 3
     p = zeros(n, length(date))
     for (i,d) in enumerate(date)
@@ -81,18 +83,14 @@ function position(ephem::Ephemeris, body::String, date::Vector{Float64})
     return p
 end
 
-function position(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return position(ephem, body, [date;])
-end
-
-function velocity(ephem::Ephemeris, body::String, date::Float64)
+function velocity(ephem::Ephemeris, body::AbstractString, date::Float64)
     i = planets[body]
     checkdate(ephem, date)
     c = coefficients(ephem, i, date)
     return velocity(c...)
 end
 
-function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
+function velocity(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 2 : 3
     v = zeros(n, length(date))
     for (i,d) in enumerate(date)
@@ -101,28 +99,20 @@ function velocity(ephem::Ephemeris, body::String, date::Vector{Float64})
     return v
 end
 
-function velocity(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return velocity(ephem, body, [date;])
-end
-
-function state(ephem::Ephemeris, body::String, date::Float64)
+function state(ephem::Ephemeris, body::AbstractString, date::Float64)
     nbody = planets[body]
     checkdate(ephem, date)
     c = coefficients(ephem, nbody, date)
     return [position(c...); velocity(c...)]
 end
 
-function state(ephem::Ephemeris, body::String, date::Vector{Float64})
+function state(ephem::Ephemeris, body::AbstractString, date::AbstractVector{Float64})
     n = body == "nutations" ? 4 : 6
     s = zeros(n, length(date))
     for (i,d) in enumerate(date)
         s[:,i] = state(ephem, body, d)
     end
     return s
-end
-
-function state(ephem::Ephemeris, body::String, date::Ranges{Float64})
-    return state(ephem, body, [date;])
 end
 
 function checkdate(ephem::Ephemeris, date::Float64)
@@ -139,7 +129,7 @@ function coefficients(ephem::Ephemeris, nbody::Int64, date::Float64)
         d = ephem.dtable[nbody][end]
     else
         index, frac = divrem(date-ephem.startepoch, dt)
-        index = int(index) + 1
+        index = round(Int,(index) + 1)
         d = ephem.dtable[nbody][index] 
     end
 

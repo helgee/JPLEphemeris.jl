@@ -14,8 +14,12 @@ function testephemeris(ephem::Ephemeris, verbose=false)
 
     for l in lines
         if ismatch(r"^[0-9]", l)
-            de, date, jd, target, center, index, value = [f(v) for (f,v) in
-            zip((string, string, float, int, int, int, float), split(l))]
+            de, date, jd, target, center, index, value = split(l)
+            jd = float(jd)
+            target = parse(Int, target)
+            center = parse(Int, center)
+            index = parse(Int, index)
+            value = float(value)
 
             if target in 14:15
                 r = state(ephem, jd, target)
@@ -49,7 +53,7 @@ function testephemeris(ephem::Ephemeris, verbose=false)
 end
 
 function state(ephem::Ephemeris, date::Float64, target::Int64)
-    s(body::String) = state(ephem, body, date)
+    s(body::AbstractString) = state(ephem, body, date)
 
     planets = Dict(1=>"mercury", 2=>"venus", 4=>"mars", 5=>"jupiter",
     6=>"saturn", 7=>"uranus", 8=>"neptune", 9=>"pluto", 11=>"sun",
