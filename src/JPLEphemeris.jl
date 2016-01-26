@@ -176,5 +176,7 @@ function close(ephem::Ephemeris)
 end
 
 include("util.jl")
+include("daf.jl")
+include("spk.jl")
 
 end
