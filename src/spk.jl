@@ -14,9 +14,14 @@ type Segment
     lastaddr::Int32
 end
 
-function Segment(name, record)
-    firstsec, lastsec = reinterpret(Float64, record[1:16])
-    target, center, frame, repr, firstaddr, lastaddr = reinterpret(Int32, record[17:end])
+type SPK
+    daf::DAF
+    segments::Dict{Int, Dict{Int, Segment}}
+end
+
+function Segment(name, record, little)
+    firstsec, lastsec = reinterpret(Float64, record[1:16], little)
+    target, center, frame, repr, firstaddr, lastaddr = reinterpret(Int32, record[17:end], little)
     Segment(
         name,
         firstsec,
@@ -32,13 +37,22 @@ function Segment(name, record)
     )
 end
 
-type SPK
-    daf::DAF
-    segments::Vector{Segment}
+function getdata(spk::SPK, seg::Segment)
+    first = seg.firstaddr*8 - 7
+    last = seg.lastaddr*8
+    spk.daf.array[first:last]
 end
 
 function SPK(filename)
     daf = DAF(filename)
-    segments = [Segment(s...) for s in getsummaries(daf)]
+    segments = Dict{Int, Dict{Int, Segment}}()
+    for (name, summary) in getsummaries(daf)
+        seg = Segment(name, summary, daf.little)
+        if haskey(segments, seg.center)
+            merge!(segments[seg.center], Dict(seg.target=>seg))
+        else
+            merge!(segments, Dict(seg.center=>Dict(seg.target=>seg)))
+        end
+    end
     SPK(daf, segments)
 end
