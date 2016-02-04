@@ -188,7 +188,6 @@ function parsedatafile(datafile, ncoeff, ind, dtable, outfile)
     seekend(f)
     filesize = Base.position(f)
     seekstart(f)
-    p = Progress(filesize,1,"Processing coefficients...",25)
     while ~eof(f)
         l = readline(f)
         if ismatch(header, l)
@@ -207,7 +206,6 @@ function parsedatafile(datafile, ncoeff, ind, dtable, outfile)
             end
             savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
         end
-        update!(p, Base.position(f))
     end
 end
 

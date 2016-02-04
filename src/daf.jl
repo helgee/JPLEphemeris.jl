@@ -23,6 +23,9 @@ end
 getrecord(daf::DAF, n) = getrecord(daf.array, n)
 
 function DAF(filename)
+    if !isfile(filename)
+        error("'$filename' does not exist.")
+    end
     array = Mmap.mmap(filename, Vector{UInt8})
     fr = readfilerecord(getrecord(array, 1))
     DAF(filename, array, fr...)
