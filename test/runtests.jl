@@ -3,7 +3,7 @@ using Base.Test
 
 const AU = 0.149597870700000000e+09
 
-jd2000(jd) = jd - 2451544.5
+jd2000(jd) = jd - 2451545
 
 function testephemeris(denum, verbose=false)
     println("Testing ephemeris DE$denum.")
@@ -28,21 +28,31 @@ function testephemeris(denum, verbose=false)
             continue
         end
 
-        tr = teststate(ephem, jd, target)
-        cr = teststate(ephem, jd, center)
-        r = (tr - cr)/AU
+        try
+            tr = teststate(ephem, jd, target)
+            cr = teststate(ephem, jd, center)
+            r = (tr - cr)/AU
 
-        if verbose
-            println("Date: $date")
-            println("JD2000: $jd")
-            println("Target: $target")
-            println("Center: $center")
-            println("Orginal value: $value")
-            println("Computed value: $(r[index])")
-            println("===========================================")
+            if verbose
+                println("Date: $date")
+                println("JD2000: $jd")
+                println("Target: $target")
+                println("Center: $center")
+                println("Orginal value:  $value")
+                println("Computed value: $(r[index])")
+                println("===========================================")
+            end
+
+            @test_approx_eq_eps r[index] value 1e-3
+        # The test file for DE405 contains a wider range of dates than the SPK kernel provides.
+        # Ignore those.
+        catch err
+            if isa(err, JPLEphemeris.OutOfRangeError)
+                continue
+            else
+                rethrow(err)
+            end
         end
-
-        #= @test_approx_eq r[index] value =#
     end
 end
 
