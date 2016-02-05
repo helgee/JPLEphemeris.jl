@@ -3,6 +3,14 @@ import Base.position
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
 
+type OutOfRangeError <: Exception
+    date::Float64
+    startdate::Float64
+    finaldate::Float64
+end
+
+Base.showerror(io::IO, err::OutOfRangeError) = print(io, "The requested date $(err.date) is outside the intervall ($(err.startdate), $(err.finaldate)).")
+
 type Segment
     name::ASCIIString
     firstsec::Float64
@@ -12,7 +20,7 @@ type Segment
     target::Int32
     center::Int32
     frame::Int32
-    repr::Int32
+    spktype::Int32
     firstaddr::Int32
     lastaddr::Int32
     firstword::Int32
@@ -22,13 +30,13 @@ type Segment
     n::Int32
 end
 
-function Segment(daf, name, record, little)
-    firstsec, lastsec = reinterpret(Float64, record[1:16], little)
-    target, center, frame, repr, firstaddr, lastaddr = reinterpret(Int32, record[17:end], little)
-    if repr != 2
+function Segment(daf, name, record)
+    firstsec, lastsec = reinterpret(Float64, record[1:16], daf.little)
+    target, center, frame, spktype, firstaddr, lastaddr = reinterpret(Int32, record[17:end], daf.little)
+    if spktype != 2
         error("Only Type 2 SPK files are supported.")
     end
-    intlen, rsize, n = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-3*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], little)
+    intlen, rsize, n = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-3*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
     Segment(
         name,
         firstsec,
@@ -38,7 +46,7 @@ function Segment(daf, name, record, little)
         target,
         center,
         frame,
-        repr,
+        spktype,
         firstaddr,
         lastaddr,
         firstaddr*SIZE_FLOAT64 - SIZE_FLOAT64 + 1,
@@ -58,7 +66,7 @@ function SPK(filename)
     daf = DAF(filename)
     segments = Dict{Int, Dict{Int, Segment}}()
     for (name, summary) in getsummaries(daf)
-        seg = Segment(daf, name, summary, daf.little)
+        seg = Segment(daf, name, summary)
         if haskey(segments, seg.center)
             merge!(segments[seg.center], Dict(seg.target=>seg))
         else
@@ -69,8 +77,8 @@ function SPK(filename)
 end
 
 function checkdate(seg::Segment, tdb::Float64)
-    if seg.firstdate > tdb > seg.lastdate
-        error("The requested date '$tdb' is outside the range of this ephemeris.")
+    if !(seg.firstdate <= tdb <= seg.lastdate)
+        throw(OutOfRangeError(tdb, seg.firstdate, seg.lastdate))
     end
 end
 
