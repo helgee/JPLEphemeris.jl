@@ -1,7 +1,9 @@
+module Legacy
+
+using JLD
 
 const STANDARD_EPHEMERIS = "430"
 const PATH = "$(Pkg.dir())/JPLEphemeris/deps"
-
 
 type Ephemeris
     id::Int
@@ -164,3 +166,5 @@ end
 function close(ephem::Ephemeris)
     close(ephem.fid)
 end
+
+end #module

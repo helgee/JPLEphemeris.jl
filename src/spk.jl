@@ -78,21 +78,27 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     checkdate(seg, tdb)
     components = 3
     order = (seg.rsize - 2) ÷ 3
-    recordnum, frac = divrem(tdb*SECONDS_PER_DAY - seg.firstsec + tdb2*SECONDS_PER_DAY, seg.intlen)
-    recordnum = round(Int, recordnum)
+    dt = seg.intlen/SECONDS_PER_DAY
+    if tdb+tdb2 == seg.lastdate
+        recordnum = seg.n - 1
+        frac = dt
+    else
+        recordnum, frac = divrem(tdb - seg.firstdate, dt)
+        recordnum = round(Int, recordnum)
+    end
     # Drop the MID and RADIUS values
     first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
     last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
-    c = reinterpret(Float64, spk.daf.array[first:last])
+    c = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
     x = zeros(Float64, order)
-    tc = 2.0 * frac/seg.intlen - 1.0
-    x[1] = 1
+    tc = 2.0 * frac/dt - 1.0
+    x[1] = 1.0
     x[2] = tc
     twotc = tc + tc
     for i = 3:length(x)
         x[i] = twotc*x[i-1] - x[i-2]
     end
-    reshape(c, (order, components)), x, twotc
+    reshape(c, (order, components)), x, dt, twotc
 end
 
 function position(c::Matrix, x::Vector)
@@ -100,8 +106,18 @@ function position(c::Matrix, x::Vector)
 end
 
 function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, twotc = getcoefficients(spk, seg, tdb, tdb2)
+    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
     position(c, x)
+end
+
+function position(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[center][target]
+    position(spk, seg, tdb, tdb2)
+end
+
+function position(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[0][target]
+    position(spk, seg, tdb, tdb2)
 end
 
 function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
@@ -113,17 +129,37 @@ function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
     end
     t *= 2.0
     t /= dt
-    t'*c
+    c'*t
 end
 
 function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    velocity(c, x, seg.intlen, twotc)
+    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
+    velocity(c, x, dt, twotc)
+end
+
+function velocity(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[center][target]
+    velocity(spk, seg, tdb, tdb2)
+end
+
+function velocity(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[0][target]
+    velocity(spk, seg, tdb, tdb2)
 end
 
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, twotc = getcoefficients(spk, seg, tdb, tdb2)
+    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
     r = position(c, x)
-    v = velocity(c, x, seg.intlen, twotc)
+    v = velocity(c, x, dt, twotc)
     [r;v]
+end
+
+function state(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[center][target]
+    state(spk, seg, tdb, tdb2)
+end
+
+function state(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[0][target]
+    state(spk, seg, tdb, tdb2)
 end
