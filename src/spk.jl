@@ -25,6 +25,7 @@ type Segment
     lastaddr::Int32
     firstword::Int32
     lastword::Int32
+    startdate::Float64
     intlen::Float64
     rsize::Int32
     n::Int32
@@ -36,7 +37,7 @@ function Segment(daf, name, record)
     if spktype != 2
         error("Only Type 2 SPK files are supported.")
     end
-    intlen, rsize, n = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-3*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
+    init, intlen, rsize, n = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-4*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
     Segment(
         name,
         firstsec,
@@ -51,6 +52,7 @@ function Segment(daf, name, record)
         lastaddr,
         firstaddr*SIZE_FLOAT64 - SIZE_FLOAT64 + 1,
         lastaddr*SIZE_FLOAT64 - SIZE_FLOAT64*4,
+        init/SECONDS_PER_DAY,
         intlen,
         round(Int32, rsize),
         round(Int32, n),
@@ -83,16 +85,15 @@ function checkdate(seg::Segment, tdb::Float64)
 end
 
 function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    checkdate(seg, tdb)
+    checkdate(seg, tdb+tdb2)
     components = 3
     order = (seg.rsize - 2) ÷ 3
     dt = seg.intlen/SECONDS_PER_DAY
-    if tdb+tdb2 == seg.lastdate
-        recordnum = seg.n - 1
+    recordnum, frac = divrem((tdb - seg.startdate) + tdb2, dt)
+    recordnum = round(Int, recordnum)
+    if recordnum == seg.n
+        seg -= 1
         frac = dt
-    else
-        recordnum, frac = divrem(tdb - seg.firstdate, dt)
-        recordnum = round(Int, recordnum)
     end
     # Drop the MID and RADIUS values
     first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
