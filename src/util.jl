@@ -89,7 +89,7 @@ function getephem(denum; force=false, debug=false)
                 download("$ftp/de$denum", f, d)
             end
         end
-        readascii(headerlocal, datalocal, outfile)
+        read_ascii(headerlocal, datalocal, outfile)
         if ~debug
             println("Removing ASCII files.")
             rm(headerlocal)
@@ -105,7 +105,7 @@ function rmephem(denum)
     rm("$PATH/testpo.$denum")
 end
 
-function readascii(header, datafiles, outfile)
+function read_ascii(header, datafiles, outfile)
     startepoch = 0.0
     finalepoch = 0.0
     ncoeff = 0
