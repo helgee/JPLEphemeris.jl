@@ -3,6 +3,15 @@ using Base.Test
 
 const AU = 0.149597870700000000e+09
 
+const SPK_URL = Dict{Int, ASCIIString}(
+    430 => "http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp",
+    405 => "http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/a_old_versions/de405.bsp",
+)
+const TEST_URL = Dict{Int, ASCIIString}(
+    430 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/430/testpo.430",
+    405 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/testpo.405",
+)
+
 jd2000(jd) = jd - 2451545
 
 function testephemeris(denum, verbose=false)
@@ -86,6 +95,12 @@ end
 
 # Run the JPL testsuite for every installed ephemeris.
 for denum in (430, 405)
+    if !isfile("$path/de$denum.bsp")
+        download(SPK_URL[denum], "$path/de$denum.bsp")
+    end
+    if !isfile("$path/testpo.$denum")
+        download(TEST_URL[denum], "$path/testpo.$denum")
+    end
     testephemeris(denum, verbose)
 end
 
