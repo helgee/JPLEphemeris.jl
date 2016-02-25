@@ -1,3 +1,7 @@
+using JLD
+
+import JLD.@write
+
 ftp = "ftp://ssd.jpl.nasa.gov/pub/eph/planets/ascii"
 denums = [
     "431",
@@ -72,7 +76,7 @@ function getephem(denum; force=false, debug=false)
         header = headers[denum]
         headerlocal = "$PATH/$header"
         data = datafiles[denum]
-        datalocal = ["$PATH/$d" for d in data] 
+        datalocal = ["$PATH/$d" for d in data]
         println("Building ephemeris DE$denum.")
         if ~isfile("$PATH/$header") || force
             download("$ftp/de$denum", header, headerlocal)
@@ -138,7 +142,7 @@ function readascii(header, datafiles, outfile)
             firstline = i+2
             lastline = i+4
             for j = firstline:lastline
-                # The header of DE431 refers to 15 bodies instead of 13 as in the 
+                # The header of DE431 refers to 15 bodies instead of 13 as in the
                 # other ephemerides. The file contains no coefficients for these
                 # additional bodies though. Therefore only the first 13 indices
                 # are used.
@@ -212,9 +216,9 @@ end
 function savecoeff!(coeff, date, finaldate, ind, dtable, outfile)
     for j = 1:13
         dt = (finaldate - date)/ind[3,j]
-        if ~in(date, dtable[j]) 
+        if ~in(date, dtable[j])
             push!(dtable[j], date)
-        elseif in(date, dtable[j]) 
+        elseif in(date, dtable[j])
             continue
         end
         if j == 12

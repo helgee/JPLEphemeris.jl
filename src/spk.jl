@@ -1,5 +1,7 @@
 import Base.position
 
+export SPK, position, velocity, state
+
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
 

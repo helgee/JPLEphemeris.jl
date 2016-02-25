@@ -1,8 +1,8 @@
 module JPLEphemeris
 
-export SPK, position, velocity, state
-
 include("daf.jl")
 include("spk.jl")
+include("ascii.jl")
+include("util.jl")
 
 end
