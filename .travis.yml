@@ -1,24 +1,14 @@
-language: cpp
-compiler:
-    - clang
+# Documentation: http://docs.travis-ci.com/user/languages/julia/
+language: julia
+os:
+  - linux
+  - osx
+julia:
+  - release
+  - nightly
 notifications:
-    email: false
-env:
-    matrix:
-        - JULIAVERSION="juliareleases"
-        - JULIAVERSION="julianightlies"
-before_install:
-    - sudo add-apt-repository ppa:staticfloat/julia-deps -y
-    - sudo add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libpcre3-dev julia -y
-script:
-    - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir())/JPLEphemeris`); Pkg.pin("JPLEphemeris"); Pkg.resolve()'
-    - julia -e 'Pkg.build("JPLEphemeris")'
-    - julia -e 'using JPLEphemeris; for eph in ["403","421"]; getephem(eph); end'
-    - julia -e 'using JPLEphemeris; @assert isdefined(:JPLEphemeris); @assert typeof(JPLEphemeris) === Module'
-    - if [ $JULIAVERSION = "julianightlies" ]; then julia --code-coverage test/runtests.jl; fi
-    - if [ $JULIAVERSION = "juliareleases" ]; then julia test/runtests.jl; fi
-after_success:
-    - if [ $JULIAVERSION = "julianightlies" ]; then julia -e 'cd(Pkg.dir("JPLEphemeris")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'; fi
-
+  email: false
+# uncomment the following lines to override the default test script
+# script:
+#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+#  - julia -e 'Pkg.clone(pwd()); Pkg.build("JPLEphemeris"); Pkg.test("JPLEphemeris"; coverage=true)'
