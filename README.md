@@ -29,11 +29,11 @@ spk = SPK("de430.bsp")
 # 2016-01-01T00:00 in Julian days
 jd = Dates.datetime2julian(DateTime(2016,1,1,0,0,0))
 
-# Position of Mercury's barycenter w.r.t. the Solar System's barycenter at 2014-01-01T00:00
+# Position of Mercury's barycenter w.r.t. the Solar System's barycenter at 2016-01-01T00:00
 # [km]
 pos = position(spk, "mercury barycenter", jd)
 
-# Velocity of Mercury w.r.t. the Mercury's barycentre at 2014-01-01T00:00
+# Velocity of Mercury w.r.t. the Mercury's barycentre at 2016-01-01T00:00
 # [km/s]
 vel = velocity(spk, "mercury barycenter", "mercury", jd)
 
