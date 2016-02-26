@@ -134,7 +134,7 @@ function position(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
     position(spk, seg, tdb, tdb2)
 end
 
-function position(spk::SPK, target::Int, tdb::AbstractString, tdb2::Float64=0.0)
+function position(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
     position(spk, naifid(target), tdb, tdb2)
 end
 
