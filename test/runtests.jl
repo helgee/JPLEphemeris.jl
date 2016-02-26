@@ -12,8 +12,6 @@ const TEST_URL = Dict{Int, ASCIIString}(
     405 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/testpo.405",
 )
 
-jd2000(jd) = jd - 2451545
-
 function testephemeris(denum, verbose=false)
     println("Testing ephemeris DE$denum.")
     println(path)
@@ -27,11 +25,11 @@ function testephemeris(denum, verbose=false)
     start = findfirst(lines .== "EOT\n") + 1
     for l in lines[start:end]
         de, date, jd, target, center, index, value = split(l)
-        jd = jd2000(float(jd))
         target = parse(Int, target)
         center = parse(Int, center)
         index = parse(Int, index)
         value = float(value)
+        jd = float(jd)
 
         if target in 14:15
             continue
@@ -40,6 +38,10 @@ function testephemeris(denum, verbose=false)
         try
             tr = teststate(ephem, jd, target)
             cr = teststate(ephem, jd, center)
+            # From km/s to km/day
+            tr[4:6] *= 86400
+            cr[4:6] *= 86400
+            # To AU and AU/day
             r = (tr - cr)/AU
 
             if verbose

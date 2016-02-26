@@ -27,11 +27,14 @@ type Segment
     lastaddr::Int32
     firstword::Int32
     lastword::Int32
-    startdate::Float64
+    initialsecond::Float64
     intlen::Float64
     rsize::Int32
     n::Int32
 end
+
+jd(sec) = 2451545 + sec/SECONDS_PER_DAY
+seconds(jd) = (jd - 2451545)*SECONDS_PER_DAY
 
 function Segment(daf, name, record)
     firstsec, lastsec = reinterpret(Float64, record[1:16], daf.little)
@@ -44,8 +47,8 @@ function Segment(daf, name, record)
         name,
         firstsec,
         lastsec,
-        firstsec/SECONDS_PER_DAY,
-        lastsec/SECONDS_PER_DAY,
+        jd(firstsec),
+        jd(lastsec),
         target,
         center,
         frame,
@@ -54,7 +57,7 @@ function Segment(daf, name, record)
         lastaddr,
         firstaddr*SIZE_FLOAT64 - SIZE_FLOAT64 + 1,
         lastaddr*SIZE_FLOAT64 - SIZE_FLOAT64*4,
-        init/SECONDS_PER_DAY,
+        init,
         intlen,
         round(Int32, rsize),
         round(Int32, n),
@@ -90,26 +93,26 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     checkdate(seg, tdb+tdb2)
     components = 3
     order = (seg.rsize - 2) ÷ 3
-    dt = seg.intlen/SECONDS_PER_DAY
-    recordnum, frac = divrem((tdb - seg.startdate) + tdb2, dt)
+    secs = (seconds(tdb) - seg.initialsecond) + tdb2*SECONDS_PER_DAY
+    recordnum, frac = divrem(secs, seg.intlen)
     recordnum = round(Int, recordnum)
     if recordnum == seg.n
         seg -= 1
-        frac = dt
+        frac = seg.intlen
     end
     # Drop the MID and RADIUS values
     first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
     last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
     c = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
     x = zeros(Float64, order)
-    tc = 2.0 * frac/dt - 1.0
+    tc = 2.0 * frac/seg.intlen - 1.0
     x[1] = 1.0
     x[2] = tc
     twotc = tc + tc
     for i = 3:length(x)
         x[i] = twotc*x[i-1] - x[i-2]
     end
-    reshape(c, (order, components)), x, dt, twotc
+    reshape(c, (order, components)), x, seg.intlen, twotc
 end
 
 function position(c::Matrix, x::Vector)
