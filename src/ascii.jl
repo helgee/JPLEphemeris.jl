@@ -1,3 +1,5 @@
+module ASCII
+
 using JLD
 
 const STANDARD_EPHEMERIS = "430"
@@ -163,4 +165,8 @@ end
 
 function close(ephem::Ephemeris)
     close(ephem.fid)
+end
+
+include("util.jl")
+
 end
