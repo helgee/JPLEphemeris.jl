@@ -1,5 +1,3 @@
-export naifid
-
 const NAIF_IDS = Dict{ASCIIString, Int}(
     "SOLAR_SYSTEM_BARYCENTER" => 0,
     "SSB"                     => 0,
