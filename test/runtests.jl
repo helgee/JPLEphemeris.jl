@@ -95,6 +95,9 @@ end
 
 # Run the JPL testsuite for every installed ephemeris.
 for denum in (430, 405)
+    if !isdir(path)
+        mkdir(path)
+    end
     if !isfile("$path/de$denum.bsp")
         download(SPK_URL[denum], "$path/de$denum.bsp")
     end
