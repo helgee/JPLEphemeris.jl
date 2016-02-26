@@ -131,6 +131,11 @@ function position(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
     position(spk, seg, tdb, tdb2)
 end
 
+function position(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[naifid(center)][naifid(target)]
+    position(spk, seg, tdb, tdb2)
+end
+
 function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
     t = zeros(x)
     t[2] = 1.0
@@ -158,6 +163,11 @@ function velocity(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
     velocity(spk, seg, tdb, tdb2)
 end
 
+function velocity(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[naifid(center)][naifid(target)]
+    velocity(spk, seg, tdb, tdb2)
+end
+
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
     r = position(c, x)
@@ -172,5 +182,10 @@ end
 
 function state(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
     seg = spk.segments[0][target]
+    state(spk, seg, tdb, tdb2)
+end
+
+function state(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+    seg = spk.segments[naifid(center)][naifid(target)]
     state(spk, seg, tdb, tdb2)
 end
