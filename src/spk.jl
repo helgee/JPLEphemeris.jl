@@ -124,50 +124,15 @@ function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     position(c, x)
 end
 
-function position(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[center][target]
-    position(spk, seg, tdb, tdb2)
-end
-
-function position(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[0][target]
-    position(spk, seg, tdb, tdb2)
-end
-
-function position(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    position(spk, naifid(target), tdb, tdb2)
-end
-
-function position(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    position(spk, naifid(center), naifid(target), tdb, tdb2)
-end
-
-function position(spk::SPK, center, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = position(spk, center, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
-
-function position(spk::SPK, center, target, tdb::AbstractArray)
-    s(tdb) = position(spk, center, target, tdb)
-    map(s, tdb)
-end
-
-function position(spk::SPK, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = position(spk, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
-
-function position(spk::SPK, target, tdb::AbstractArray)
-    s(tdb) = position(spk, target, tdb)
-    map(s, tdb)
-end
-
 function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
-    t = zeros(x)
+    n = length(x)
+    t = zeros(n)
     t[2] = 1.0
-    t[3] = twotc + twotc
-    for i = 4:length(t)
-        t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
+    if n > 2
+        t[3] = twotc + twotc
+        for i = 4:n
+            t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
+        end
     end
     t *= 2.0
     t /= dt
@@ -179,43 +144,6 @@ function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     velocity(c, x, dt, twotc)
 end
 
-function velocity(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[center][target]
-    velocity(spk, seg, tdb, tdb2)
-end
-
-function velocity(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[0][target]
-    velocity(spk, seg, tdb, tdb2)
-end
-
-function velocity(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    velocity(spk, naifid(target), tdb, tdb2)
-end
-
-function velocity(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    velocity(spk, naifid(center), naifid(target), tdb, tdb2)
-end
-
-function velocity(spk::SPK, center, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = velocity(spk, center, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
-
-function velocity(spk::SPK, center, target, tdb::AbstractArray)
-    s(tdb) = velocity(spk, center, target, tdb)
-    map(s, tdb)
-end
-
-function velocity(spk::SPK, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = velocity(spk, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
-
-function velocity(spk::SPK, target, tdb::AbstractArray)
-    s(tdb) = velocity(spk, target, tdb)
-    map(s, tdb)
-end
 
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
@@ -224,40 +152,48 @@ function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     [r;v]
 end
 
-function state(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[center][target]
-    state(spk, seg, tdb, tdb2)
-end
+for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
+    @eval begin
+        function ($f)(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            seg = spk.segments[center][target]
+            ($f)(spk, seg, tdb, tdb2)
+        end
 
-function state(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
-    seg = spk.segments[0][target]
-    state(spk, seg, tdb, tdb2)
-end
+        function ($f)(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            seg = spk.segments[0][target]
+            ($f)(spk, seg, tdb, tdb2)
+        end
 
-function state(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    state(spk, naifid(center), tdb, tdb2)
-end
+        function ($f)(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            ($f)(spk, naifid(target), tdb, tdb2)
+        end
 
-function state(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-    state(spk, naifid(center), naifif(target), tdb, tdb2)
-end
+        function ($f)(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            ($f)(spk, naifid(center), naifid(target), tdb, tdb2)
+        end
 
-function state(spk::SPK, center, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = state(spk, center, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
+        function ($f)(spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            ($f)(spk, center, naifid(target), tdb, tdb2)
+        end
 
-function state(spk::SPK, center, target, tdb::AbstractArray)
-    s(tdb) = state(spk, center, target, tdb)
-    map(s, tdb)
-end
+        function ($f)(spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            ($f)(spk, naifid(center), target, tdb, tdb2)
+        end
 
-function state(spk::SPK, target, tdb::AbstractArray, tdb2::AbstractArray)
-    s(tdb, tdb2) = state(spk, target, tdb, tdb2)
-    map(s, tdb, tdb2)
-end
+        function ($f)(spk::SPK, center, target, tdb::AbstractArray, tdb2::AbstractArray=zeros(length(tdb)))
+            m = length(tdb)
+            if m != length(tdb2)
+                error("'tdb' and 'tdb2' must have the same length.")
+            end
+            out = zeros(m, $n)
+            for (i, t, t2) in zip(1:m, tdb, tdb2)
+                out[i,:] = ($f)(spk, center, target, t, t2)
+            end
+            return out
+        end
 
-function state(spk::SPK, target, tdb::AbstractArray)
-    s(tdb) = state(spk, target, tdb)
-    map(s, tdb)
+        function ($f)(spk::SPK, target, tdb::AbstractArray, tdb2::AbstractArray=zeros(length(tdb)))
+            ($f)(spk, 0, target, tdb, tdb2)
+        end
+    end
 end

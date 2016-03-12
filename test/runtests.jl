@@ -54,7 +54,7 @@ function testephemeris(denum, verbose=false)
                 println("===========================================")
             end
 
-            @test_approx_eq_eps r[index] value 1e-3
+            @test_approx_eq_eps r[index] value sqrt(eps())
         # The test file for DE405 contains a wider range of dates than the SPK kernel provides.
         # Ignore those.
         catch err
@@ -109,3 +109,4 @@ for denum in (430, 405)
     testephemeris(denum, verbose)
 end
 
+include("basic.jl")
