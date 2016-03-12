@@ -29,21 +29,21 @@ spk = SPK("de430.bsp")
 # 2016-01-01T00:00 in Julian days
 jd = Dates.datetime2julian(DateTime(2016,1,1,0,0,0))
 
-# Position of Mercury's barycenter w.r.t. the Solar System's barycenter at 2016-01-01T00:00
+# Position of Earth's barycenter w.r.t. the Solar System's barycenter at 2016-01-01T00:00
 # [km]
-pos = position(spk, "mercury barycenter", jd)
+pos = position(spk, "earth barycenter", jd)
 
-# Velocity of Mercury w.r.t. the Mercury's barycentre at 2016-01-01T00:00
+# Velocity of Earth w.r.t. Earth's barycentre at 2016-01-01T00:00
 # [km/s]
-vel = velocity(spk, "mercury barycenter", "mercury", jd)
+vel = velocity(spk, "earth barycenter", "earth", jd)
 
-# Complete state vector (position and velocity) of Mercury's barycenter (NAIF ID: 1)
+# Compute the state vector (position and velocity) of Earth's barycenter (NAIF ID: 3)
 # w.r.t. to the Solar System's barycenter (NAIF ID: 0) for a range of Julian days
-st = state(spk, 0, 1, jd:jd+100)
+st = state(spk, 0, 3, jd:jd+100)
 
 # Two-part Julian dates (day number and fraction) can be used for higher precision.
 # For example for 2016-01-01T12:00:
-st = state(spk, 0, 1, jd, 0.5)
+st = state(spk, 0, 3, jd, 0.5)
 ```
 
 ## ASCII API
