@@ -14,7 +14,6 @@ const TEST_URL = Dict{Int, ASCIIString}(
 
 function testephemeris(denum, verbose=false)
     println("Testing ephemeris DE$denum.")
-    println(path)
     ephem = SPK("$path/de$denum.bsp")
     if isfile("$path/testpo.$denum")
         lines = open(readlines, "$path/testpo.$denum")
