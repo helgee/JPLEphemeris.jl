@@ -573,3 +573,14 @@ const NAIF_IDS = Dict{ASCIIString, Int}(
 function naifid(str::AbstractString)
     NAIF_IDS[uppercase(str)]
 end
+
+function name_from_naifid(searchid::Int)
+    if searchid == 0
+        return "SOLAR SYSTEM BARYCENTER"
+    end
+    for (name, id) in NAIF_IDS
+        if searchid == id && !contains(name, "_")
+            return name
+        end
+    end
+end

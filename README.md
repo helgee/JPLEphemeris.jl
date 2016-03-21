@@ -26,6 +26,9 @@ using JPLEphemeris
 # Load the DE430 SPK kernel
 spk = SPK("de430.bsp")
 
+# List the available segments
+print_segments(spk)
+
 # 2016-01-01T00:00 in Julian days
 jd = Dates.datetime2julian(DateTime(2016,1,1,0,0,0))
 

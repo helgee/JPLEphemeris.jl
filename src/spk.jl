@@ -1,6 +1,6 @@
 import Base.position
 
-export SPK, position, velocity, state
+export SPK, position, velocity, state, segments, print_segments
 
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
@@ -81,6 +81,32 @@ function SPK(filename)
         end
     end
     SPK(daf, segments)
+end
+
+segments(spk::SPK) = spk.segments
+
+function list_segments(spk::SPK)
+    s = ASCIIString[]
+    for (k,v) in spk.segments
+        for l in keys(v)
+            push!(s, "$(name_from_naifid(k)) ($k) => $(name_from_naifid(l)) ($l)")
+        end
+    end
+    return sort!(s, lt=segstrlt)
+end
+
+function print_segments(spk::SPK)
+    s = list_segments(spk)
+    println(join(s, "\n"))
+end
+
+function segstrlt(a::ASCIIString, b::ASCIIString)
+   rex = r"\([0-9]*\)$"
+   ma = match(rex, a)
+   mb = match(rex, b)
+   ia = parse(Int, a[ma.offset+1:end-1])
+   ib = parse(Int, b[mb.offset+1:end-1])
+   return ia < ib
 end
 
 function checkdate(seg::Segment, tdb::Float64)
