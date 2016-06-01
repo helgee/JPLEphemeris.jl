@@ -151,9 +151,7 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     c, x, seg.intlen, twotc
 end
 
-function position(c::Matrix, x::Vector)
-    c*x
-end
+position(c::Matrix, x::Vector) = c*x
 
 function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
