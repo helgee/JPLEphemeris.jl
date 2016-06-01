@@ -30,7 +30,8 @@ type Segment
     initialsecond::Float64
     intlen::Float64
     rsize::Int32
-    n::Int32
+    n_records::Int32
+    cache::Dict{Int,Matrix{Float64}}
 end
 
 jd(sec) = 2451545 + sec/SECONDS_PER_DAY
@@ -40,9 +41,11 @@ function Segment(daf, name, record)
     firstsec, lastsec = reinterpret(Float64, record[1:16], daf.little)
     target, center, frame, spktype, firstaddr, lastaddr = reinterpret(Int32, record[17:end], daf.little)
     if spktype != 2
-        error("Only Type 2 SPK files are supported.")
+        error("Type $spktype SPK file detected. Only Type 2 SPK files are supported.")
     end
-    init, intlen, rsize, n = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-4*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
+    init, intlen, rsize, n_records = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-4*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
+    n_records = round(Int32, n_records)
+    cache = Dict{Int,Matrix{Float64}}()
     Segment(
         name,
         firstsec,
@@ -60,7 +63,8 @@ function Segment(daf, name, record)
         init,
         intlen,
         round(Int32, rsize),
-        round(Int32, n),
+        n_records,
+        cache,
     )
 end
 
@@ -122,14 +126,20 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     secs = (seconds(tdb) - seg.initialsecond) + tdb2*SECONDS_PER_DAY
     recordnum, frac = divrem(secs, seg.intlen)
     recordnum = round(Int, recordnum)
-    if recordnum == seg.n
-        seg -= 1
+    if recordnum == seg.n_records
+        recordnum -= 1
         frac = seg.intlen
     end
-    # Drop the MID and RADIUS values
-    first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
-    last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
-    c = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
+    if recordnum in keys(seg.cache)
+        c = seg.cache[recordnum]
+    else
+        # Drop the MID and RADIUS values
+        first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
+        last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
+        cv = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
+        c = reshape(cv, (order, components))'
+        merge!(seg.cache, Dict(recordnum => c))
+    end
     x = zeros(Float64, order)
     tc = 2.0 * frac/seg.intlen - 1.0
     x[1] = 1.0
@@ -138,11 +148,11 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     for i = 3:length(x)
         x[i] = twotc*x[i-1] - x[i-2]
     end
-    reshape(c, (order, components)), x, seg.intlen, twotc
+    c, x, seg.intlen, twotc
 end
 
 function position(c::Matrix, x::Vector)
-    c'*x
+    c*x
 end
 
 function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
@@ -162,7 +172,7 @@ function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
     end
     t *= 2.0
     t /= dt
-    c'*t
+    c*t
 end
 
 function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
