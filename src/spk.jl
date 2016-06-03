@@ -31,7 +31,8 @@ type Segment
     intlen::Float64
     rsize::Int32
     n_records::Int32
-    cache::Dict{Int,Matrix{Float64}}
+    cache::Matrix{Float64}
+    cached_record::Int
 end
 
 jd(sec) = 2451545 + sec/SECONDS_PER_DAY
@@ -45,7 +46,6 @@ function Segment(daf, name, record)
     end
     init, intlen, rsize, n_records = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-4*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
     n_records = round(Int32, n_records)
-    cache = Dict{Int,Matrix{Float64}}()
     Segment(
         name,
         firstsec,
@@ -64,7 +64,8 @@ function Segment(daf, name, record)
         intlen,
         round(Int32, rsize),
         n_records,
-        cache,
+        Matrix{Float64}(),
+        -1,
     )
 end
 
@@ -130,59 +131,73 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
         recordnum -= 1
         frac = seg.intlen
     end
-    if recordnum in keys(seg.cache)
-        c = seg.cache[recordnum]
+    if recordnum == seg.cached_record
+        c = seg.cache
     else
         # Drop the MID and RADIUS values
         first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
         last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
         cv = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
         c = reshape(cv, (order, components))'
-        merge!(seg.cache, Dict(recordnum => c))
+        seg.cache = c
+        seg.cached_record = recordnum
     end
-    x = zeros(Float64, order)
+    x = Array(Float64, order)
     tc = 2.0 * frac/seg.intlen - 1.0
     x[1] = 1.0
     x[2] = tc
     twotc = tc + tc
-    for i = 3:length(x)
+    @inbounds for i = 3:order
         x[i] = twotc*x[i-1] - x[i-2]
     end
-    c, x, seg.intlen, twotc
+    c, x, seg.intlen, twotc, order
 end
 
-position(c::Matrix, x::Vector) = c*x
+function position(c::Matrix, x::Vector, order::Int)
+    r = zeros(3)
+    @inbounds @simd for i = 1:3
+        for j = 1:order
+            r[i] += c[i, j] * x[j]
+        end
+    end
+    return r
+end
 
 function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    position(c, x)
+    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
+    position(c, x, order)
 end
 
-function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64)
-    n = length(x)
-    t = zeros(n)
+function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64, order::Int)
+    v = zeros(Float64, 3)
+    t = zeros(Float64, order)
     t[2] = 1.0
-    if n > 2
+    if order > 2
         t[3] = twotc + twotc
-        for i = 4:n
+        for i = 4:order
             t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
         end
     end
     t *= 2.0
     t /= dt
-    c*t
+    @inbounds @simd for i = 1:3
+        for j = 1:order
+            v[i] += c[i, j] * t[j]
+        end
+    end
+    return v
 end
 
 function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    velocity(c, x, dt, twotc)
+    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
+    velocity(c, x, dt, twotc, order)
 end
 
 
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    r = position(c, x)
-    v = velocity(c, x, dt, twotc)
+    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
+    r = position(c, x, order)
+    v = velocity(c, x, dt, twotc, order)
     [r;v]
 end
 
