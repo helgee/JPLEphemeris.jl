@@ -14,7 +14,7 @@ end
 Base.showerror(io::IO, err::OutOfRangeError) = print(io, "The requested date $(err.date) is outside the intervall ($(err.startdate), $(err.finaldate)).")
 
 type Segment
-    name::ASCIIString
+    name::String
     firstsec::Float64
     lastsec::Float64
     firstdate::Float64
@@ -91,7 +91,7 @@ end
 segments(spk::SPK) = spk.segments
 
 function list_segments(spk::SPK)
-    s = ASCIIString[]
+    s = String[]
     for (k,v) in spk.segments
         for l in keys(v)
             push!(s, "$(name_from_naifid(k)) ($k) => $(name_from_naifid(l)) ($l)")
@@ -105,7 +105,7 @@ function print_segments(spk::SPK)
     println(join(s, "\n"))
 end
 
-function segstrlt(a::ASCIIString, b::ASCIIString)
+function segstrlt(a::String, b::String)
    rex = r"\([0-9]*\)$"
    ma = match(rex, a)
    mb = match(rex, b)
