@@ -1,4 +1,4 @@
-const NAIF_IDS = Dict{ASCIIString, Int}(
+const NAIF_IDS = Dict{String, Int}(
     "SOLAR_SYSTEM_BARYCENTER" => 0,
     "SSB"                     => 0,
     "SOLAR SYSTEM BARYCENTER" => 0,
