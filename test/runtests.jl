@@ -2,10 +2,6 @@ using JPLEphemeris
 using Base.Test
 import Compat: ASCIIString
 
-path = abspath(joinpath(dirname(@__FILE__), "..", "deps"))
-
-include("basic.jl")
-
 const AU = 0.149597870700000000e+09
 
 const SPK_URL = Dict{Int, ASCIIString}(
@@ -16,6 +12,22 @@ const TEST_URL = Dict{Int, ASCIIString}(
     430 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/430/testpo.430",
     405 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/testpo.405",
 )
+
+path = abspath(joinpath(dirname(@__FILE__), "..", "deps"))
+
+for denum in (430, 405)
+    if !isdir(path)
+        mkdir(path)
+    end
+    if !isfile("$path/de$denum.bsp")
+        download(SPK_URL[denum], "$path/de$denum.bsp")
+    end
+    if !isfile("$path/testpo.$denum")
+        download(TEST_URL[denum], "$path/testpo.$denum")
+    end
+end
+
+include("basic.jl")
 
 function testephemeris(denum)
     ephem = SPK("$path/de$denum.bsp")
@@ -83,16 +95,7 @@ end
 
 # Run the JPL testsuite for every installed ephemeris.
 @testset "Kernels" begin
-    @testset for denum in ("430", "405")
-        if !isdir(path)
-            mkdir(path)
-        end
-        if !isfile("$path/de$denum.bsp")
-            download(SPK_URL[denum], "$path/de$denum.bsp")
-        end
-        if !isfile("$path/testpo.$denum")
-            download(TEST_URL[denum], "$path/testpo.$denum")
-        end
+    @testset for denum in (430, 405)
         testephemeris(denum)
     end
 end
