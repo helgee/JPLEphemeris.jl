@@ -1,13 +1,14 @@
 using JPLEphemeris
 using Base.Test
+import Compat: ASCIIString
 
 const AU = 0.149597870700000000e+09
 
-const SPK_URL = Dict{Int, String}(
+const SPK_URL = Dict{Int, ASCIIString}(
     430 => "http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp",
     405 => "http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/a_old_versions/de405.bsp",
 )
-const TEST_URL = Dict{Int, String}(
+const TEST_URL = Dict{Int, ASCIIString}(
     430 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/430/testpo.430",
     405 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/testpo.405",
 )
