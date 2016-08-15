@@ -2,6 +2,10 @@ using JPLEphemeris
 using Base.Test
 import Compat: ASCIIString
 
+path = abspath(joinpath(dirname(@__FILE__), "..", "deps"))
+
+include("basic.jl")
+
 const AU = 0.149597870700000000e+09
 
 const SPK_URL = Dict{Int, ASCIIString}(
@@ -13,8 +17,7 @@ const TEST_URL = Dict{Int, ASCIIString}(
     405 => "ftp://ssd.jpl.nasa.gov/pub/eph/planets/test-data/testpo.405",
 )
 
-function testephemeris(denum, verbose=false)
-    println("Testing ephemeris DE$denum.")
+function testephemeris(denum)
     ephem = SPK("$path/de$denum.bsp")
     if isfile("$path/testpo.$denum")
         lines = open(readlines, "$path/testpo.$denum")
@@ -44,17 +47,7 @@ function testephemeris(denum, verbose=false)
             # To AU and AU/day
             r = (tr - cr)/AU
 
-            if verbose
-                println("Date: $date")
-                println("JD2000: $jd")
-                println("Target: $target")
-                println("Center: $center")
-                println("Orginal value:  $value")
-                println("Computed value: $(r[index])")
-                println("===========================================")
-            end
-
-            @test_approx_eq_eps r[index] value sqrt(eps())
+            @test isapprox(r[index], value, atol=1e-13)
         # The test file for DE405 contains a wider range of dates than the SPK kernel provides.
         # Ignore those.
         catch err
@@ -88,25 +81,18 @@ function teststate(kernel, tbd, target)
     return rv
 end
 
-path = abspath(joinpath(splitdir(@__FILE__)[1], "..", "deps"))
-
-verbose = false
-if ~isempty(ARGS) && ((ARGS[1] == "-v") || (ARGS[1] == "--verbose"))
-    verbose = true
-end
-
 # Run the JPL testsuite for every installed ephemeris.
-for denum in (430, 405)
-    if !isdir(path)
-        mkdir(path)
+@testset "Kernels" begin
+    @testset for denum in ("430", "405")
+        if !isdir(path)
+            mkdir(path)
+        end
+        if !isfile("$path/de$denum.bsp")
+            download(SPK_URL[denum], "$path/de$denum.bsp")
+        end
+        if !isfile("$path/testpo.$denum")
+            download(TEST_URL[denum], "$path/testpo.$denum")
+        end
+        testephemeris(denum)
     end
-    if !isfile("$path/de$denum.bsp")
-        download(SPK_URL[denum], "$path/de$denum.bsp")
-    end
-    if !isfile("$path/testpo.$denum")
-        download(TEST_URL[denum], "$path/testpo.$denum")
-    end
-    testephemeris(denum, verbose)
 end
-
-include("basic.jl")
