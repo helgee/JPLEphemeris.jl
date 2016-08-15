@@ -101,7 +101,7 @@ function addsummaries!(summaries, record, names, nsum, ss, nc)
 end
 
 function getsummaries(daf::DAF)
-    summaries = Tuple{ASCIIString,Vector{UInt8}}[]
+    summaries = Tuple{String,Vector{UInt8}}[]
     record = getrecord(daf, daf.first)
     names = getrecord(daf, daf.first+1)
     next, nsum = summaryheader(record, daf.little)
