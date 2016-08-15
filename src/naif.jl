@@ -577,6 +577,8 @@ end
 function name_from_naifid(searchid::Int)
     if searchid == 0
         return "SOLAR SYSTEM BARYCENTER"
+    elseif searchid == 3
+        return "EARTH-MOON BARYCENTER"
     end
     for (name, id) in NAIF_IDS
         if searchid == id && !contains(name, "_")
