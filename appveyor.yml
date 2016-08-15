@@ -15,6 +15,8 @@ notifications:
     on_build_success: false
     on_build_failure: false
     on_build_status_changed: false
+init:
+- ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 install:
 # Download most recent Julia Windows binary
