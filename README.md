@@ -8,7 +8,7 @@ JPLEphemeris.jl
 
 The [JPL Development Ephemerides][jpl] are the results of simulations of the Solar System used for spacecraft navigation and astronomical purposes. They are published as [SPK kernel files][spk] which contain sets of Chebyshev polynomial coefficients with which the position and velocity of the Solar System's planets can be interpolated with high precision for all dates covered by the ephemeris.
 
-This package provides functionality to read SPK files and compute the position and velocity of the planets and minor bodies directly from Julia.
+This package provides functionality to read SPK files and compute the position and velocity of the planets directly from Julia.
 
 ## Installation
 
@@ -51,57 +51,7 @@ st = state(spk, 0, 3, jd, 0.5)
 
 ## ASCII API
 
-This package also provides an older API for working with ephemeris data from ASCII tables which are converted to [JLD files][jld].
-However using the SPK API is recommended.
-
-### Usage
-
-```julia
-using JPLEphemeris.ASCII
-
-# Download and convert ephemeris DE421
-getephem(421)
-
-# Load ephemeris DE421
-eph = Ephemeris(421)
-
-# 2014-01-01T00:00 in Julian days
-jd = 2456658.5
-
-# Position of Mercury w.r.t. the Solar System's barycentre at 2014-01-01T00:00
-# [km]
-pos = position(eph, "mercury", jd)
-
-# Velocity of Mercury w.r.t. the Solar System's barycentre at 2014-01-01T00:00
-# [km/day]
-vel = velocity(eph, "mercury", jd)
-
-# Complete state vector (position and velocity) for a range of Julian days
-st = state(eph, "mercury", jd:jd+100)
-
-# The ephemeris also contains the set of constants with which it was calculated
-# e.g. the Astronomical Unit (AU)
-au = eph.constants["AU"]
-
-# Close ephemeris file
-close(eph)
-```
-
-### Available Celestial Bodies
-
-* Mercury: `"mercury"`
-* Venus: `"venus"`
-* Earth-Moon system's barycenter: `"earthmoon"`
-* Mars: `"mars"`
-* Jupiter: `"jupiter"`
-* Saturn: `"saturn"`
-* Uranus: `"uranus"`
-* Neptune: `"neptune"`
-* Pluto: `"pluto"`
-* Moon (geocentric): `"moon"`
-* Sun: `"sun"`
-* Librations: `"librations"`
-* Nutations: `"nutations"`
+The ASCII API that was originally included with this package has been moved to [LegacyEphemeris.jl][legacy].
 
 ## Validation
 
@@ -116,3 +66,4 @@ Please use it if you need similar functionality in Python.
 [jld]: https://github.com/JuliaLang/JLD.jl
 [br]: https://github.com/brandon-rhodes
 [spk]: http://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/
+[legacy]: https://github.com/helgee/LegacyEphemeris.jl
