@@ -1,7 +1,7 @@
 JPLEphemeris.jl
 ===============
 
-[![Travis Status](https://travis-ci.org/helgee/JPLEphemeris.jl.png)](https://travis-ci.org/helgee/JPLEphemeris.jl)
+[![Travis Status](https://travis-ci.org/JuliaAstrodynamics/JPLEphemeris.jl.png)](https://travis-ci.org/JuliaAstrodynamics/JPLEphemeris.jl)
 [![AppVeyor status](https://ci.appveyor.com/api/projects/status/7pt2vy8wulix06jk?svg=true)](https://ci.appveyor.com/project/helgee/jplephemeris-jl)
 [![PkgEval v4](http://pkg.julialang.org/badges/JPLEphemeris_0.4.svg)](http://pkg.julialang.org/?pkg=JPLEphemeris)
 [![PkgEval v5](http://pkg.julialang.org/badges/JPLEphemeris_0.5.svg)](http://pkg.julialang.org/?pkg=JPLEphemeris)
