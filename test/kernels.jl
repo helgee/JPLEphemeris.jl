@@ -6,7 +6,7 @@ function testephemeris(denum)
         error("Test file 'testpo.$denum' not found.")
     end
 
-    start = findfirst(lines .== "EOT\n") + 1
+    start = findfirst(map(x -> startswith(x, "EOT"), lines)) + 1
     for l in lines[start:end]
         de, date, jd, target, center, index, value = split(l)
         target = parse(Int, target)

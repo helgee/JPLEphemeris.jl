@@ -64,7 +64,7 @@ function Segment(daf, name, record)
         intlen,
         round(Int32, rsize),
         n_records,
-        Matrix{Float64}(),
+        Matrix{Float64}(0,0),
         -1,
     )
 end
@@ -142,7 +142,7 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
         seg.cache = c
         seg.cached_record = recordnum
     end
-    x = Array(Float64, order)
+    x = Array{Float64}(order)
     tc = 2.0 * frac/seg.intlen - 1.0
     x[1] = 1.0
     x[2] = tc

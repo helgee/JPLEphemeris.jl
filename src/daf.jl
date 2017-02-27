@@ -36,7 +36,7 @@ function reinterpret(t::Type, array::Vector{UInt8}, littleendian::Bool)
     if littleendian
         return out
     else
-        return map!(ntoh, out)
+        return map!(ntoh, out, out)
     end
 end
 
@@ -87,7 +87,7 @@ function readfilerecord(record)
 end
 
 function summaryheader(record, little)
-    next, _, nsum = round(Int32, reinterpret(Float64, record[1:24], little))
+    next, _, nsum = round.(Int32, reinterpret(Float64, record[1:24], little))
     return next, nsum
 end
 
