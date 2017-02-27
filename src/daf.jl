@@ -87,8 +87,8 @@ function readfilerecord(record)
 end
 
 function summaryheader(record, little)
-    next, _, nsum = round.(Int32, reinterpret(Float64, record[1:24], little))
-    return next, nsum
+    next, _, nsum = reinterpret(Float64, record[1:24], little)
+    return round(Int32, next), round(Int32, nsum)
 end
 
 function addsummaries!(summaries, record, names, nsum, ss, nc)
