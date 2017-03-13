@@ -1,6 +1,5 @@
 module JPLEphemeris
 
-using Compat
 using AstroDynBase
 
 include("naif.jl")
