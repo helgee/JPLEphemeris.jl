@@ -1,13 +1,13 @@
 import Base.reinterpret
 
 type DAF
-    filename::ASCIIString
+    filename::String
     array::Vector{UInt8}
     little::Bool
-    id::ASCIIString
+    id::String
     nd::Int32
     ni::Int32
-    name::ASCIIString
+    name::String
     first::Int32
     last::Int32
     ss::Int32
@@ -45,7 +45,7 @@ function readint(record, address, littleendian=true)
 end
 
 function readascii(record, address, len)
-    rstrip(ASCIIString(record[address+1:address+len]))
+    rstrip(String(record[address+1:address+len]))
 end
 
 function islittleendian(record, legacy)
@@ -94,14 +94,14 @@ end
 function addsummaries!(summaries, record, names, nsum, ss, nc)
     for i = 1:nsum
         push!(summaries, (
-            rstrip(ASCIIString(names[1+(i-1)*nc:i*nc])),
+            rstrip(String(names[1+(i-1)*nc:i*nc])),
             record[25+(i-1)*ss*8:25+i*ss*8]
         ))
     end
 end
 
 function getsummaries(daf::DAF)
-    summaries = Tuple{ASCIIString,Vector{UInt8}}[]
+    summaries = Tuple{String,Vector{UInt8}}[]
     record = getrecord(daf, daf.first)
     names = getrecord(daf, daf.first+1)
     next, nsum = summaryheader(record, daf.little)

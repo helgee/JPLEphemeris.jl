@@ -1,3 +1,2 @@
-julia 0.4
-BaseTestNext 0.2.2
-Compat 0.7.15
+julia 0.6-
+AstroDynBase
