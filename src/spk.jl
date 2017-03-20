@@ -1,4 +1,4 @@
-import Base.position
+import AstroDynBase: Ephemeris, position, velocity, state
 
 export SPK, position, velocity, state, segments, print_segments
 
@@ -69,7 +69,7 @@ function Segment(daf, name, record)
     )
 end
 
-type SPK <: AbstractEphemeris
+type SPK <: Ephemeris
     daf::DAF
     segments::Dict{Int, Dict{Int, Segment}}
 end
