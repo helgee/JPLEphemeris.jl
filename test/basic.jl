@@ -1,6 +1,5 @@
 # Reference value from CSPICE
 rvm = [4.250906022073639e7,2.3501057648129586e7,8.158467467032234e6,-34.160008371029825,37.844059275357594,23.756128199757867]
-mrvm = [rvm';rvm']
 
 de430segments = [
     "SOLAR SYSTEM BARYCENTER (0) => MERCURY BARYCENTER (1)",
@@ -38,8 +37,8 @@ spk = SPK("$path/de430.bsp")
         @test res ≈ rvm[range]
         res = func(spk, 0, 1, jd)
         @test res ≈ rvm[range]
-        res = func(spk, 0, 1, [jd; jd])
-        @test res ≈ mrvm[:,range]
+        res = func.(spk, 0, 1, [jd; jd])
+        @test all(map(x -> x ≈ rvm[range], res))
         res = func(spk, "mercury barycenter", jd, 0.0)
         @test res ≈ rvm[range]
         res = func(spk, 1, jd, 0.0)
@@ -52,7 +51,7 @@ spk = SPK("$path/de430.bsp")
         @test res ≈ rvm[range]
         res = func(spk, 0, 1, jd, 0.0)
         @test res ≈ rvm[range]
-        res = func(spk, 0, 1, [jd; jd], [0.0, 0.0])
-        @test res ≈ mrvm[:,range]
+        res = func.(spk, 0, 1, [jd; jd], [0.0, 0.0])
+        @test all(map(x -> x ≈ rvm[range], res))
     end
 end

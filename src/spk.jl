@@ -74,6 +74,8 @@ type SPK <: Ephemeris
     segments::Dict{Int, Dict{Int, Segment}}
 end
 
+Base.show(io::IO, spk::SPK) = print(io, "SPK($(spk.segments[0][1].name))")
+
 function SPK(filename)
     daf = DAF(filename)
     segments = Dict{Int, Dict{Int, Segment}}()
@@ -227,22 +229,6 @@ for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
 
         function ($f)(spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
             ($f)(spk, naifid(center), target, tdb, tdb2)
-        end
-
-        function ($f)(spk::SPK, center, target, tdb::AbstractArray, tdb2::AbstractArray=zeros(length(tdb)))
-            m = length(tdb)
-            if m != length(tdb2)
-                error("'tdb' and 'tdb2' must have the same length.")
-            end
-            out = zeros(m, $n)
-            for (i, t, t2) in zip(1:m, tdb, tdb2)
-                out[i,:] = ($f)(spk, center, target, t, t2)
-            end
-            return out
-        end
-
-        function ($f)(spk::SPK, target, tdb::AbstractArray, tdb2::AbstractArray=zeros(length(tdb)))
-            ($f)(spk, 0, target, tdb, tdb2)
         end
     end
 end
