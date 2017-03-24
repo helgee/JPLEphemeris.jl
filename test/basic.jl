@@ -1,3 +1,5 @@
+import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon, EarthBarycenter, Mercury
+
 # Reference value from CSPICE
 rvm = [4.250906022073639e7,2.3501057648129586e7,8.158467467032234e6,-34.160008371029825,37.844059275357594,23.756128199757867]
 
@@ -18,9 +20,23 @@ de430segments = [
     "EARTH-MOON BARYCENTER (3) => EARTH (399)",
 ]
 jd = Dates.datetime2julian(DateTime(2016,1,1,0,0,0))
+ep = TDBEpoch(jd)
 spk = SPK("$path/de430.bsp")
 
 @testset "API" begin
+    @testset "Path" begin
+        @test JPLEphemeris.findpath(EarthBarycenter, SSB) == [EarthBarycenter, SSB]
+        @test JPLEphemeris.findpath(SSB, EarthBarycenter) == [SSB, EarthBarycenter]
+        @test JPLEphemeris.findpath(Earth, Mercury) == [Earth, EarthBarycenter, SSB, MercuryBarycenter, Mercury]
+        @test JPLEphemeris.findpath(Earth, Moon) == [Earth, EarthBarycenter, Moon]
+        @test JPLEphemeris.findpath(EarthBarycenter, MercuryBarycenter) == [EarthBarycenter, SSB, MercuryBarycenter]
+        @test JPLEphemeris.findpath(Earth, MercuryBarycenter) == [Earth, EarthBarycenter, SSB, MercuryBarycenter]
+        @test JPLEphemeris.findpath(EarthBarycenter, Mercury) == [EarthBarycenter, SSB, MercuryBarycenter, Mercury]
+    end
+    @testset "Segments" begin
+        @test JPLEphemeris.findsegment(spk.segments, 0, 3) == (spk.segments[0][3], 1.0)
+        @test JPLEphemeris.findsegment(spk.segments, 3, 0) == (spk.segments[0][3], -1.0)
+    end
     @testset for (a, b) in zip(JPLEphemeris.list_segments(spk), de430segments)
         @test a == b
     end
@@ -53,5 +69,17 @@ spk = SPK("$path/de430.bsp")
         @test res ≈ rvm[range]
         res = func.(spk, 0, 1, [jd; jd], [0.0, 0.0])
         @test all(map(x -> x ≈ rvm[range], res))
+
+        res = func(spk, ep, SSB, MercuryBarycenter)
+        @test res ≈ rvm[range]
+        res = func(spk, ep, MercuryBarycenter, SSB)
+        @test res ≈ -rvm[range]
+
+        res = func(spk, ep, Earth, Mercury)
+        exp = func(spk, ep, Earth, EarthBarycenter) +
+            func(spk, ep, EarthBarycenter, SSB) +
+            func(spk, ep, SSB, MercuryBarycenter) +
+            func(spk, ep, MercuryBarycenter, Mercury)
+        @test res ≈ exp
     end
 end

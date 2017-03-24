@@ -1,4 +1,5 @@
-import AstroDynBase: Ephemeris, position, velocity, state
+using AstroDynBase
+import AstroDynBase: position, velocity, state
 
 export SPK, position, velocity, state, segments, print_segments
 
@@ -203,32 +204,70 @@ function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     [r;v]
 end
 
+function findsegment(segments, origin, target)
+    if origin in keys(segments) && target in keys(segments[origin])
+        factor = 1.0
+        return segments[origin][target], factor
+    elseif target in keys(segments) && origin in keys(segments[target])
+        factor = -1.0
+        return segments[target][origin], factor
+    else
+        error("No segment '$origin'->'$target' available.")
+    end
+end
+
+function findpath(origin, target)
+    if target == parent(origin) || parent(target) == origin
+        return [origin, target]
+    elseif parent(target) == parent(origin)
+        return [origin, parent(origin), target]
+    elseif parent(parent(target)) == parent(origin) ||
+        parent(target) == parent(parent(origin))
+        return [origin, parent(origin), parent(target), target]
+    elseif parent(parent(target)) == parent(parent(origin))
+        return [origin, parent(origin), parent(parent(origin)), parent(target), target]
+    end
+end
+
 for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
     @eval begin
-        function ($f)(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            seg = spk.segments[center][target]
-            ($f)(spk, seg, tdb, tdb2)
+        function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
+            path = findpath(from, to)
+            jd1 = julian1(ep)
+            jd2 = julian2(ep)
+            length(path) == 2 && $f(spk, naif_id(from), naif_id(to), jd1, jd2)
+
+            res = zeros($n)
+            for (origin, target) in zip(path, path[2:end])
+                res += $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
+            end
+            res
         end
 
-        function ($f)(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+        function $f(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            seg, factor = findsegment(spk.segments, center, target)
+            $f(spk, seg, tdb, tdb2) * factor
+        end
+
+        function $f(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
             seg = spk.segments[0][target]
-            ($f)(spk, seg, tdb, tdb2)
+            $f(spk, seg, tdb, tdb2)
         end
 
-        function ($f)(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            ($f)(spk, naifid(target), tdb, tdb2)
+        function $f(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $f(spk, naifid(target), tdb, tdb2)
         end
 
-        function ($f)(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            ($f)(spk, naifid(center), naifid(target), tdb, tdb2)
+        function $f(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $f(spk, naifid(center), naifid(target), tdb, tdb2)
         end
 
-        function ($f)(spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            ($f)(spk, center, naifid(target), tdb, tdb2)
+        function $f(spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $f(spk, center, naifid(target), tdb, tdb2)
         end
 
-        function ($f)(spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            ($f)(spk, naifid(center), target, tdb, tdb2)
+        function $f(spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            $f(spk, naifid(center), target, tdb, tdb2)
         end
     end
 end
