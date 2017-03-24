@@ -2,8 +2,7 @@ JPLEphemeris.jl
 ===============
 
 [![Travis Status](https://travis-ci.org/JuliaAstrodynamics/JPLEphemeris.jl.png)](https://travis-ci.org/JuliaAstrodynamics/JPLEphemeris.jl)
-[![AppVeyor status](https://ci.appveyor.com/api/projects/status/7pt2vy8wulix06jk?svg=true)](https://ci.appveyor.com/project/helgee/jplephemeris-jl)
-[![PkgEval v4](http://pkg.julialang.org/badges/JPLEphemeris_0.4.svg)](http://pkg.julialang.org/?pkg=JPLEphemeris)
+[![Build status](https://ci.appveyor.com/api/projects/status/2d9y5mcek1qxggg0?svg=true)](https://ci.appveyor.com/project/JuliaAstrodynamics/jplephemeris-jl)
 [![PkgEval v5](http://pkg.julialang.org/badges/JPLEphemeris_0.5.svg)](http://pkg.julialang.org/?pkg=JPLEphemeris)
 
 The [JPL Development Ephemerides][jpl] are the results of simulations of the Solar System used for spacecraft navigation and astronomical purposes. They are published as [SPK kernel files][spk] which contain sets of Chebyshev polynomial coefficients with which the position and velocity of the Solar System's planets can be interpolated with high precision for all dates covered by the ephemeris.

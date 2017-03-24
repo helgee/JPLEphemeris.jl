@@ -25,6 +25,11 @@ install:
 build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
+  - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/helgee/Convertible.jl.git\")"
+  - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/helgee/RemoteFiles.jl.git\")"
+  - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/helgee/OptionalData.jl.git\")"
+  - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/helgee/EarthOrientation.jl.git\")"
+  - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/JuliaAstrodynamics/AstronomicalTime.jl.git\")"
   - C:\projects\julia\bin\julia -e "Pkg.clone(\"https://github.com/JuliaAstrodynamics/AstroDynBase.jl.git\")"
   - C:\projects\julia\bin\julia -e "versioninfo();
       Pkg.clone(pwd(), \"JPLEphemeris\"); Pkg.build(\"JPLEphemeris\")"
