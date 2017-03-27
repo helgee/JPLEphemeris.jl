@@ -45,11 +45,11 @@ function teststate(kernel, tbd, target)
     if target == 3
         rv1 = state(kernel, 0, 3, tbd)
         rv2 = state(kernel, 3, 399, tbd)
-        rv = rv1+rv2
+        rv = rv1 .+ rv2
     elseif target == 10
         rv1 = state(kernel, 0, 3, tbd)
         rv2 = state(kernel, 3, 301, tbd)
-        rv = rv1+rv2
+        rv = rv1 .+ rv2
     elseif target == 11
         rv = state(kernel, 0, 10, tbd)
     elseif target == 12
@@ -59,7 +59,7 @@ function teststate(kernel, tbd, target)
     else
         rv = state(kernel, 0, target, tbd)
     end
-    return rv
+    return vcat(rv...)
 end
 
 # Run the JPL testsuite for every installed ephemeris.

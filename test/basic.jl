@@ -1,7 +1,10 @@
-import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon, EarthBarycenter, Mercury
+import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon,
+    EarthBarycenter, Mercury, km, kps
 
 # Reference value from CSPICE
-rvm = [4.250906022073639e7,2.3501057648129586e7,8.158467467032234e6,-34.160008371029825,37.844059275357594,23.756128199757867]
+r_ref = [4.250906022073639e7, 2.3501057648129586e7, 8.158467467032234e6]
+v_ref = [-34.160008371029825, 37.844059275357594, 23.756128199757867]
+rv_ref = (r_ref, v_ref)
 
 de430segments = [
     "SOLAR SYSTEM BARYCENTER (0) => MERCURY BARYCENTER (1)",
@@ -27,6 +30,8 @@ spk = SPK("$path/de430.bsp")
     @testset "Path" begin
         @test JPLEphemeris.findpath(EarthBarycenter, SSB) == [EarthBarycenter, SSB]
         @test JPLEphemeris.findpath(SSB, EarthBarycenter) == [SSB, EarthBarycenter]
+        @test JPLEphemeris.findpath(Earth, SSB) == [Earth, EarthBarycenter, SSB]
+        @test JPLEphemeris.findpath(SSB, Earth) == [SSB, EarthBarycenter, Earth]
         @test JPLEphemeris.findpath(Earth, Mercury) == [Earth, EarthBarycenter, SSB, MercuryBarycenter, Mercury]
         @test JPLEphemeris.findpath(Earth, Moon) == [Earth, EarthBarycenter, Moon]
         @test JPLEphemeris.findpath(EarthBarycenter, MercuryBarycenter) == [EarthBarycenter, SSB, MercuryBarycenter]
@@ -40,46 +45,47 @@ spk = SPK("$path/de430.bsp")
     @testset for (a, b) in zip(JPLEphemeris.list_segments(spk), de430segments)
         @test a == b
     end
-    @testset for (func, range) in zip((position, velocity, state), (1:3, 4:6, 1:6))
+    @testset for (func, ref, unit) in zip((position, velocity, state),
+        (r_ref, v_ref, rv_ref), (km, kps, (km, kps)))
         res = func(spk, "mercury barycenter", jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 1, jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, "ssb", "mercury barycenter", jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 0, "mercury barycenter", jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, "ssb", 1, jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 0, 1, jd)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func.(spk, 0, 1, [jd; jd])
-        @test all(map(x -> x ≈ rvm[range], res))
+        @test all(all.(map(x->x .≈ ref, res)))
         res = func(spk, "mercury barycenter", jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 1, jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, "ssb", "mercury barycenter", jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 0, "mercury barycenter", jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, "ssb", 1, jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func(spk, 0, 1, jd, 0.0)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref)
         res = func.(spk, 0, 1, [jd; jd], [0.0, 0.0])
-        @test all(map(x -> x ≈ rvm[range], res))
+        @test all(all.(map(x->x .≈ ref, res)))
 
         res = func(spk, ep, SSB, MercuryBarycenter)
-        @test res ≈ rvm[range]
+        @test all(res .≈ ref .* unit)
         res = func(spk, ep, MercuryBarycenter, SSB)
-        @test res ≈ -rvm[range]
+        @test all(res .≈ -1 .* ref .* unit)
 
         res = func(spk, ep, Earth, Mercury)
-        exp = func(spk, ep, Earth, EarthBarycenter) +
-            func(spk, ep, EarthBarycenter, SSB) +
-            func(spk, ep, SSB, MercuryBarycenter) +
+        exp = func(spk, ep, Earth, EarthBarycenter) .+
+            func(spk, ep, EarthBarycenter, SSB) .+
+            func(spk, ep, SSB, MercuryBarycenter) .+
             func(spk, ep, MercuryBarycenter, Mercury)
-        @test res ≈ exp
+        @test all(res .≈ exp)
     end
 end

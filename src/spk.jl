@@ -201,7 +201,7 @@ function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
     r = position(c, x, order)
     v = velocity(c, x, dt, twotc, order)
-    [r;v]
+    r, v
 end
 
 function findsegment(segments, origin, target)
@@ -219,6 +219,10 @@ end
 function findpath(origin, target)
     if target == parent(origin) || parent(target) == origin
         return [origin, target]
+    elseif target == parent(parent(origin))
+        return [origin, parent(origin), target]
+    elseif origin == parent(parent(target))
+        return [origin, parent(target), target]
     elseif parent(target) == parent(origin)
         return [origin, parent(origin), target]
     elseif parent(parent(target)) == parent(origin) ||
@@ -229,24 +233,24 @@ function findpath(origin, target)
     end
 end
 
-for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
+for (f, u) in zip((:state, :velocity, :position), ((:km, :kps), (:kps,), (:km,)))
     @eval begin
         function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
             path = findpath(from, to)
-            jd1 = julian1(ep)
-            jd2 = julian2(ep)
+            jd1 = julian1_strip(ep)
+            jd2 = julian2_strip(ep)
             length(path) == 2 && $f(spk, naif_id(from), naif_id(to), jd1, jd2)
 
-            res = zeros($n)
-            for (origin, target) in zip(path, path[2:end])
-                res += $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
+            res = $f(spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
+            for (origin, target) in zip(path[2:end-1], path[3:end])
+                res = res .+ $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
             end
-            res
+            res .* ($(u...),)
         end
 
         function $f(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
             seg, factor = findsegment(spk.segments, center, target)
-            $f(spk, seg, tdb, tdb2) * factor
+            $f(spk, seg, tdb, tdb2) .* factor
         end
 
         function $f(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
