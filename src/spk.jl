@@ -40,12 +40,15 @@ jd(sec) = 2451545 + sec/SECONDS_PER_DAY
 seconds(jd) = (jd - 2451545)*SECONDS_PER_DAY
 
 function Segment(daf, name, record)
-    firstsec, lastsec = reinterpret(Float64, record[1:16], daf.little)
-    target, center, frame, spktype, firstaddr, lastaddr = reinterpret(Int32, record[17:end], daf.little)
+    firstsec, lastsec = reinterpret_getindex(Float64, record, (1, 9), daf.little)
+    target, center, frame, spktype, firstaddr, lastaddr =
+        reinterpret_getindex(Int32, record, (17, 21, 25, 29, 33, 37), daf.little)
     if spktype != 2
         error("Type $spktype SPK file detected. Only Type 2 SPK files are supported.")
     end
-    init, intlen, rsize, n_records = reinterpret(Float64, daf.array[lastaddr*SIZE_FLOAT64-4*SIZE_FLOAT64+1:lastaddr*SIZE_FLOAT64], daf.little)
+    i0 = lastaddr * SIZE_FLOAT64 - 4 * SIZE_FLOAT64 + 1
+    init, intlen, rsize, n_records =
+        reinterpret_getindex(Float64, daf.array, (i0, i0 + 8, i0 + 16, i0 + 24), daf.little)
     n_records = round(Int32, n_records)
     Segment(
         name,
@@ -139,8 +142,8 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     else
         # Drop the MID and RADIUS values
         first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
-        last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1)
-        cv = reinterpret(Float64, spk.daf.array[first:last], spk.daf.little)
+        last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1) - 1
+        cv = reinterpret_getindex.(Float64, (spk.daf.array,), first:8:last, spk.daf.little)
         c = reshape(cv, (order, components))'
         seg.cache = c
         seg.cached_record = recordnum
