@@ -1,5 +1,3 @@
-import Base.reinterpret
-
 type DAF
     filename::String
     array::Vector{UInt8}
@@ -31,17 +29,22 @@ function DAF(filename)
     DAF(filename, array, fr...)
 end
 
-function reinterpret(t::Type, array::Vector{UInt8}, littleendian::Bool)
-    out = reinterpret(t, array)
-    if littleendian
-        return out
-    else
-        return map!(ntoh, out, out)
+@inline function reinterpret_getindex{T}(::Type{T}, b::Vector{UInt8}, i, le::Bool)
+    # Read in host endian
+    @boundscheck if i + sizeof(T) - 1 > length(b)
+        throw(BoundsError(b, i + sizeof(T) - 1))
     end
+    v = unsafe_load(Ptr{T}(pointer(b, i)))
+    return le ? htol(v) : hton(v)
+end
+
+@inline function reinterpret_getindex{N,T}(::Type{T}, b::Vector{UInt8},
+                                           idxs::NTuple{N,Int}, le::Bool)
+    @inbounds return ntuple(i->reinterpret_getindex(T, b, idxs[i], le), Val{N})
 end
 
 function readint(record, address, littleendian=true)
-    reinterpret(Int32, record[address+1:address+4], littleendian)[1]
+    reinterpret_getindex(Int32, record, address + 1, littleendian)
 end
 
 function readascii(record, address, len)
@@ -87,7 +90,7 @@ function readfilerecord(record)
 end
 
 function summaryheader(record, little)
-    next, _, nsum = reinterpret(Float64, record[1:24], little)
+    next, nsum = reinterpret_getindex(Float64, record, (1, 17), little)
     return round(Int32, next), round(Int32, nsum)
 end
 
