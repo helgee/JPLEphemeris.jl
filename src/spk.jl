@@ -236,19 +236,19 @@ function findpath(origin, target)
     end
 end
 
-for (f, u) in zip((:state, :velocity, :position), ((:km, :kps), (:kps,), (:km,)))
+for f in (:state, :velocity, :position)
     @eval begin
         function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
             path = findpath(from, to)
-            jd1 = julian1_strip(ep)
-            jd2 = julian2_strip(ep)
+            jd1 = julian1(ep)
+            jd2 = julian2(ep)
             length(path) == 2 && $f(spk, naif_id(from), naif_id(to), jd1, jd2)
 
             res = $f(spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
             for (origin, target) in zip(path[2:end-1], path[3:end])
                 res = res .+ $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
             end
-            res .* ($(u...),)
+            res
         end
 
         function $f(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)

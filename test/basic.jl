@@ -1,5 +1,5 @@
 import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon,
-    EarthBarycenter, Mercury, km, kps
+    EarthBarycenter, Mercury
 
 # Reference value from CSPICE
 r_ref = [4.250906022073639e7, 2.3501057648129586e7, 8.158467467032234e6]
@@ -45,8 +45,7 @@ spk = SPK("$path/de430.bsp")
     @testset for (a, b) in zip(JPLEphemeris.list_segments(spk), de430segments)
         @test a == b
     end
-    @testset for (func, ref, unit) in zip((position, velocity, state),
-        (r_ref, v_ref, rv_ref), (km, kps, (km, kps)))
+    @testset for (func, ref) in zip((position, velocity, state), (r_ref, v_ref, rv_ref))
         res = func(spk, "mercury barycenter", jd)
         @test all(res .≈ ref)
         res = func(spk, 1, jd)
@@ -77,9 +76,9 @@ spk = SPK("$path/de430.bsp")
         @test all(all.(map(x->x .≈ ref, res)))
 
         res = func(spk, ep, SSB, MercuryBarycenter)
-        @test all(res .≈ ref .* unit)
+        @test all(res .≈ ref)
         res = func(spk, ep, MercuryBarycenter, SSB)
-        @test all(res .≈ -1 .* ref .* unit)
+        @test all(res .≈ -1 .* ref)
 
         res = func(spk, ep, Earth, Mercury)
         exp = func(spk, ep, Earth, EarthBarycenter) .+
