@@ -4,7 +4,7 @@ import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon,
 # Reference value from CSPICE
 r_ref = [4.250906022073639e7, 2.3501057648129586e7, 8.158467467032234e6]
 v_ref = [-34.160008371029825, 37.844059275357594, 23.756128199757867]
-rv_ref = (r_ref, v_ref)
+rv_ref = [r_ref; v_ref]
 
 de430segments = [
     "SOLAR SYSTEM BARYCENTER (0) => MERCURY BARYCENTER (1)",

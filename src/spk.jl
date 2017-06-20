@@ -202,9 +202,10 @@ end
 
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
-    r = position(c, x, order)
-    v = velocity(c, x, dt, twotc, order)
-    r, v
+    rv = Array{Float64}(6)
+    rv[1:3] = position(c, x, order)
+    rv[4:6] = velocity(c, x, dt, twotc, order)
+    rv
 end
 
 function findsegment(segments, origin, target)
@@ -246,7 +247,7 @@ for f in (:state, :velocity, :position)
 
             res = $f(spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
             for (origin, target) in zip(path[2:end-1], path[3:end])
-                res = res .+ $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
+                res .+= $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
             end
             res
         end
