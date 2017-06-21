@@ -1,7 +1,8 @@
 using AstroDynBase
-import AstroDynBase: position, velocity, state
+import AstroDynBase: position, velocity, state, position!, velocity!, state!
 
-export SPK, position, velocity, state, segments, print_segments
+export SPK, position, velocity, state, position!, velocity!, state!,
+    segments, print_segments
 
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
@@ -164,23 +165,21 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
     x, seg.intlen, twotc
 end
 
-function position(seg, x::Vector)
-    r = zeros(3)
+function position!(r, x::Vector, seg::Segment, sign::Float64)
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
-            r[i] += seg.cache[i, j] * x[j]
+            r[i] += sign * seg.cache[i, j] * x[j]
         end
     end
-    return r
+    r
 end
 
-function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
+function position!(r, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
     x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    position(seg, x)
+    position!(r, x, seg, sign)
 end
 
-function velocity(seg, x::Vector, dt::Float64, twotc::Float64)
-    v = zeros(Float64, 3)
+function velocity!(v, x::Vector, dt::Float64, twotc::Float64, seg::Segment, sign::Float64)
     t = zeros(Float64, seg.order)
     t[2] = 1.0
     if seg.order > 2
@@ -193,34 +192,34 @@ function velocity(seg, x::Vector, dt::Float64, twotc::Float64)
     t /= dt
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
-            v[i] += seg.cache[i, j] * t[j]
+            v[i] += sign * seg.cache[i, j] * t[j]
         end
     end
-    return v
-    # seg.cache * t
+    v
 end
 
-function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
+function velocity!(v, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
     x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    velocity(seg, x, dt, twotc)
+    velocity!(v, x, dt, twotc, seg, sign)
 end
 
 
-function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
+function state!(s, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
     x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    rv = Array{Float64}(6)
-    rv[1:3] .= position(seg, x)
-    rv[4:6] .= velocity(seg, x, dt, twotc)
-    rv
+    @views begin
+        position!(s[1:3], x, seg, sign)
+        velocity!(s[4:6], x, dt, twotc, seg, sign)
+    end
+    s
 end
 
 function findsegment(segments, origin, target)
     if origin in keys(segments) && target in keys(segments[origin])
-        factor = 1.0
-        return segments[origin][target], factor
+        sign = 1.0
+        return segments[origin][target], sign
     elseif target in keys(segments) && origin in keys(segments[target])
-        factor = -1.0
-        return segments[target][origin], factor
+        sign = -1.0
+        return segments[target][origin], sign
     else
         error("No segment '$origin'->'$target' available.")
     end
@@ -243,45 +242,60 @@ function findpath(origin, target)
     end
 end
 
-for f in (:state, :velocity, :position)
+for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
+    fmut = Symbol(f, "!")
     @eval begin
-        function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
+        function $fmut(arr, spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
             path = findpath(from, to)
             jd1 = julian1(ep)
             jd2 = julian2(ep)
-            length(path) == 2 && $f(spk, naif_id(from), naif_id(to), jd1, jd2)
-
-            res = $f(spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
-            for (origin, target) in zip(path[2:end-1], path[3:end])
-                res .+= $f(spk, naif_id(origin), naif_id(target), jd1, jd2)
+            if length(path) == 2
+                $fmut(arr, spk, naif_id(from), naif_id(to), jd1, jd2)
+                return arr
             end
-            res
+
+            $fmut(arr, spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
+            for (origin, target) in zip(path[2:end-1], path[3:end])
+                $fmut(arr, spk, naif_id(origin), naif_id(target), jd1, jd2)
+            end
+            arr
         end
 
-        function $f(spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            seg, factor = findsegment(spk.segments, center, target)
-            $f(spk, seg, tdb, tdb2) .* factor
+        function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
+            arr = zeros($n)
+            $fmut(arr, spk, ep, from, to)
         end
 
-        function $f(spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
+        function $fmut(arr, spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            seg, sign = findsegment(spk.segments, center, target)
+            $fmut(arr, spk, seg, sign, tdb, tdb2)
+        end
+
+        function $fmut(arr, spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
             seg = spk.segments[0][target]
-            $f(spk, seg, tdb, tdb2)
+            $fmut(arr, spk, seg, 1.0, tdb, tdb2)
         end
 
-        function $f(spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $f(spk, naifid(target), tdb, tdb2)
+        function $fmut(arr, spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $fmut(arr, spk, naifid(target), tdb, tdb2)
         end
 
-        function $f(spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $f(spk, naifid(center), naifid(target), tdb, tdb2)
+        function $fmut(arr, spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $fmut(arr, spk, naifid(center), naifid(target), tdb, tdb2)
         end
 
-        function $f(spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $f(spk, center, naifid(target), tdb, tdb2)
+        function $fmut(arr, spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
+            $fmut(arr, spk, center, naifid(target), tdb, tdb2)
         end
 
-        function $f(spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            $f(spk, naifid(center), target, tdb, tdb2)
+        function $fmut(arr, spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
+            $fmut(arr, spk, naifid(center), target, tdb, tdb2)
         end
+
+        $f(spk::SPK, target, tdb::Float64, tdb2::Float64=0.0) =
+            $fmut(zeros($n), spk, target, tdb, tdb2)
+
+        $f(spk::SPK, center, target, tdb::Float64, tdb2::Float64=0.0) =
+            $fmut(zeros($n), spk, center, target, tdb, tdb2)
     end
 end
