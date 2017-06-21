@@ -28,7 +28,20 @@ function testephemeris(denum)
             # To AU and AU/day
             r = (tr - cr)/AU
 
-            @test isapprox(r[index], value, atol=1e-13)
+            passed = isapprox(r[index], value, atol=1e-13)
+            if !passed
+                @show jd
+                @show tr
+                @show cr
+                @show r
+                @show target
+                @show center
+                @show index
+                @show r[index]
+                @show value
+                @show abs(r[index] - value)
+            end
+            @test passed
         # The test file for DE405 contains a wider range of dates than the SPK kernel provides.
         # Ignore those.
         catch err

@@ -20,20 +20,21 @@ type Segment
     lastsec::Float64
     firstdate::Float64
     lastdate::Float64
-    target::Int32
-    center::Int32
-    frame::Int32
-    spktype::Int32
-    firstaddr::Int32
-    lastaddr::Int32
-    firstword::Int32
-    lastword::Int32
+    target::Int
+    center::Int
+    frame::Int
+    spktype::Int
+    firstaddr::Int
+    lastaddr::Int
+    firstword::Int
+    lastword::Int
     initialsecond::Float64
     intlen::Float64
-    rsize::Int32
-    n_records::Int32
-    cache::Matrix{Float64}
+    rsize::Int
+    n_records::Int
+    order::Int
     cached_record::Int
+    cache::Matrix{Float64}
 end
 
 jd(sec) = 2451545 + sec/SECONDS_PER_DAY
@@ -50,6 +51,7 @@ function Segment(daf, name, record)
     init, intlen, rsize, n_records =
         reinterpret_getindex(Float64, daf.array, (i0, i0 + 8, i0 + 16, i0 + 24), daf.little)
     n_records = round(Int32, n_records)
+    order = Int((rsize - 2) ÷ 3)
     Segment(
         name,
         firstsec,
@@ -68,8 +70,9 @@ function Segment(daf, name, record)
         intlen,
         round(Int32, rsize),
         n_records,
-        Matrix{Float64}(0,0),
+        order,
         -1,
+        zeros(3, order),
     )
 end
 
@@ -129,82 +132,85 @@ end
 function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
     checkdate(seg, tdb+tdb2)
     components = 3
-    order = (seg.rsize - 2) ÷ 3
-    secs = (seconds(tdb) - seg.initialsecond) + tdb2*SECONDS_PER_DAY
+    secs = (seconds(tdb) - seg.initialsecond) + tdb2 * SECONDS_PER_DAY
     recordnum, frac = divrem(secs, seg.intlen)
     recordnum = round(Int, recordnum)
     if recordnum == seg.n_records
         recordnum -= 1
         frac = seg.intlen
     end
-    if recordnum == seg.cached_record
-        c = seg.cache
-    else
+    if recordnum != seg.cached_record
+        seg.cached_record = recordnum
         # Drop the MID and RADIUS values
         first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
         last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1) - 1
-        cv = reinterpret_getindex.(Float64, (spk.daf.array,), first:8:last, spk.daf.little)
-        c = reshape(cv, (order, components))'
-        seg.cache = c
-        seg.cached_record = recordnum
+
+        ptr = Ptr{Float64}(pointer(spk.daf.array, first))
+        cache = unsafe_wrap(Array, Ptr{Float64}(ptr), (seg.order, components), false)
+        if !spk.daf.little
+            transpose!(seg.cache, ntoh.(copy(cache)))
+        else
+            transpose!(seg.cache, cache)
+        end
     end
-    x = Array{Float64}(order)
+    x = Array{Float64}(seg.order)
     tc = 2.0 * frac/seg.intlen - 1.0
     x[1] = 1.0
     x[2] = tc
     twotc = tc + tc
-    @inbounds for i = 3:order
+    @inbounds for i = 3:seg.order
         x[i] = twotc*x[i-1] - x[i-2]
     end
-    c, x, seg.intlen, twotc, order
+    x, seg.intlen, twotc
 end
 
-function position(c::Matrix, x::Vector, order::Int)
+function position(seg, x::Vector)
     r = zeros(3)
     @inbounds @simd for i = 1:3
-        for j = 1:order
-            r[i] += c[i, j] * x[j]
+        for j = 1:seg.order
+            r[i] += seg.cache[i, j] * x[j]
         end
     end
     return r
 end
 
 function position(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
-    position(c, x, order)
+    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
+    position(seg, x)
 end
 
-function velocity(c::Matrix, x::Vector, dt::Float64, twotc::Float64, order::Int)
+function velocity(seg, x::Vector, dt::Float64, twotc::Float64)
     v = zeros(Float64, 3)
-    t = zeros(Float64, order)
+    t = zeros(Float64, seg.order)
     t[2] = 1.0
-    if order > 2
+    if seg.order > 2
         t[3] = twotc + twotc
-        for i = 4:order
+        @inbounds for i = 4:seg.order
             t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
         end
     end
     t *= 2.0
     t /= dt
     @inbounds @simd for i = 1:3
-        for j = 1:order
-            v[i] += c[i, j] * t[j]
+        for j = 1:seg.order
+            v[i] += seg.cache[i, j] * t[j]
         end
     end
     return v
+    # seg.cache * t
 end
 
 function velocity(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
-    velocity(c, x, dt, twotc, order)
+    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
+    velocity(seg, x, dt, twotc)
 end
 
 
 function state(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
-    c, x, dt, twotc, order = getcoefficients(spk, seg, tdb, tdb2)
+    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
     rv = Array{Float64}(6)
-    rv[1:3] = position(c, x, order)
-    rv[4:6] = velocity(c, x, dt, twotc, order)
+    rv[1:3] .= position(seg, x)
+    rv[4:6] .= velocity(seg, x, dt, twotc)
     rv
 end
 
