@@ -1,5 +1,4 @@
 using AstroDynBase
-using BenchmarkTools
 using Distributions
 using JPLEphemeris
 
@@ -11,6 +10,17 @@ function runner(times)
     total = 0.0
     for t in times
         time = @elapsed state!(arr, spk, seg, 1.0, t)
+        total += time
+    end
+    print_time(total / n)
+end
+
+function runner_ep(times)
+    arr = zeros(6)
+    state!(arr, spk, times[1], Earth, Mercury)
+    total = 0.0
+    for t in times
+        time = @elapsed state!(arr, spk, times[1], Earth, Mercury)
         total += time
     end
     print_time(total / n)
@@ -30,7 +40,7 @@ end
 
 spk = SPK(joinpath(Pkg.dir("JPLEphemeris"), "deps", "de430.bsp"))
 seg = spk.segments[0][3]
-n = 10_000_000
+n = 1_000_000
 
 first = seg.firstdate
 last = seg.lastdate
@@ -40,7 +50,9 @@ random = rand(d, n)
 
 runner(linear)
 runner(random)
-# @profiler state.(spk, seg, random)
-# Profile.clear()
-# @profile state.(spk, seg, random)
-# Profile.print()
+
+linear_ep = TDBEpoch.(linear)
+random_ep = TDBEpoch.(random)
+
+runner_ep(linear_ep)
+runner_ep(random_ep)

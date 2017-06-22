@@ -28,15 +28,15 @@ spk = SPK("$path/de430.bsp")
 
 @testset "API" begin
     @testset "Path" begin
-        @test JPLEphemeris.findpath(EarthBarycenter, SSB) == [EarthBarycenter, SSB]
-        @test JPLEphemeris.findpath(SSB, EarthBarycenter) == [SSB, EarthBarycenter]
-        @test JPLEphemeris.findpath(Earth, SSB) == [Earth, EarthBarycenter, SSB]
-        @test JPLEphemeris.findpath(SSB, Earth) == [SSB, EarthBarycenter, Earth]
-        @test JPLEphemeris.findpath(Earth, Mercury) == [Earth, EarthBarycenter, SSB, MercuryBarycenter, Mercury]
-        @test JPLEphemeris.findpath(Earth, Moon) == [Earth, EarthBarycenter, Moon]
-        @test JPLEphemeris.findpath(EarthBarycenter, MercuryBarycenter) == [EarthBarycenter, SSB, MercuryBarycenter]
-        @test JPLEphemeris.findpath(Earth, MercuryBarycenter) == [Earth, EarthBarycenter, SSB, MercuryBarycenter]
-        @test JPLEphemeris.findpath(EarthBarycenter, Mercury) == [EarthBarycenter, SSB, MercuryBarycenter, Mercury]
+        @test spk.paths[3][0] == [3, 0]
+        @test spk.paths[0][3] == [0, 3]
+        @test spk.paths[399][0] == [399, 3, 0]
+        @test spk.paths[0][399] == [0, 3, 399]
+        @test spk.paths[399][199] == [399, 3, 0, 1, 199]
+        @test spk.paths[399][301] == [399, 3, 301]
+        @test spk.paths[3][199] == [3, 0, 1, 199]
+        @test spk.paths[399][1] == [399, 3, 0, 1]
+        @test spk.paths[3][199] == [3, 0, 1, 199]
     end
     @testset "Segments" begin
         @test JPLEphemeris.findsegment(spk.segments, 0, 3) == (spk.segments[0][3], 1.0)

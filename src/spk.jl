@@ -1,4 +1,6 @@
 using AstroDynBase
+using LightGraphs
+
 import AstroDynBase: position, velocity, state, position!, velocity!, state!
 
 export SPK, position, velocity, state, position!, velocity!, state!,
@@ -79,7 +81,8 @@ end
 
 type SPK <: Ephemeris
     daf::DAF
-    segments::Dict{Int, Dict{Int, Segment}}
+    segments::Dict{Int,Dict{Int,Segment}}
+    paths::Dict{Int,Dict{Int,Vector{Int}}}
 end
 
 Base.show(io::IO, spk::SPK) = print(io, "SPK($(spk.segments[0][1].name))")
@@ -87,6 +90,9 @@ Base.show(io::IO, spk::SPK) = print(io, "SPK($(spk.segments[0][1].name))")
 function SPK(filename)
     daf = DAF(filename)
     segments = Dict{Int, Dict{Int, Segment}}()
+    graph = Graph()
+    to_id = Dict{Int,Int}()
+    to_body = Dict{Int,Int}()
     for (name, summary) in getsummaries(daf)
         seg = Segment(daf, name, summary)
         if haskey(segments, seg.center)
@@ -94,8 +100,35 @@ function SPK(filename)
         else
             merge!(segments, Dict(seg.center=>Dict(seg.target=>seg)))
         end
+
+        if !(seg.center in keys(to_id))
+            add_vertex!(graph)
+            merge!(to_id, Dict(seg.center=>nv(graph)))
+            merge!(to_body, Dict(nv(graph)=>seg.center))
+        end
+        if !(seg.target in keys(to_id))
+            add_vertex!(graph)
+            merge!(to_id, Dict(seg.target=>nv(graph)))
+            merge!(to_body, Dict(nv(graph)=>seg.target))
+        end
+        add_edge!(graph, to_id[seg.center], to_id[seg.target])
     end
-    SPK(daf, segments)
+
+    paths = Dict{Int,Dict{Int,Vector{Int}}}()
+    for (origin, oid) in to_id
+        d = dijkstra_shortest_paths(graph, oid)
+        for (target, tid) in to_id
+            origin == target && continue
+            path = map(x->to_body[x], enumerate_paths(d, tid))
+            if haskey(paths, origin)
+                merge!(paths[origin], Dict(target=>path))
+            else
+                merge!(paths, Dict(origin=>Dict(target=>path)))
+            end
+        end
+    end
+
+    SPK(daf, segments, paths)
 end
 
 segments(spk::SPK) = spk.segments
@@ -124,15 +157,14 @@ function segstrlt(a::String, b::String)
    return ia < ib
 end
 
-function checkdate(seg::Segment, tdb::Float64)
+@inline function checkdate(seg::Segment, tdb::Float64)
     if !(seg.firstdate <= tdb <= seg.lastdate)
         throw(OutOfRangeError(tdb, seg.firstdate, seg.lastdate))
     end
 end
 
-function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0)
+@inline function getrecordnum(seg, tdb, tdb2)
     checkdate(seg, tdb+tdb2)
-    components = 3
     secs = (seconds(tdb) - seg.initialsecond) + tdb2 * SECONDS_PER_DAY
     recordnum, frac = divrem(secs, seg.intlen)
     recordnum = round(Int, recordnum)
@@ -140,32 +172,48 @@ function getcoefficients(spk::SPK, seg::Segment, tdb::Float64, tdb2::Float64=0.0
         recordnum -= 1
         frac = seg.intlen
     end
-    if recordnum != seg.cached_record
-        seg.cached_record = recordnum
-        # Drop the MID and RADIUS values
-        first = seg.firstword + SIZE_FLOAT64*seg.rsize*recordnum + SIZE_FLOAT64*2
-        last = seg.firstword + SIZE_FLOAT64*seg.rsize*(recordnum+1) - 1
-
-        ptr = Ptr{Float64}(pointer(spk.daf.array, first))
-        cache = unsafe_wrap(Array, Ptr{Float64}(ptr), (seg.order, components), false)
-        if !spk.daf.little
-            transpose!(seg.cache, ntoh.(copy(cache)))
-        else
-            transpose!(seg.cache, cache)
-        end
-    end
-    x = Array{Float64}(seg.order)
-    tc = 2.0 * frac/seg.intlen - 1.0
-    x[1] = 1.0
-    x[2] = tc
-    twotc = tc + tc
-    @inbounds for i = 3:seg.order
-        x[i] = twotc*x[i-1] - x[i-2]
-    end
-    x, seg.intlen, twotc
+    recordnum, frac
 end
 
-function position!(r, x::Vector, seg::Segment, sign::Float64)
+@inline function update_cache!(spk::SPK, seg::Segment, recordnum)
+    components = 3
+    seg.cached_record = recordnum
+    # Drop the MID and RADIUS values
+    first = seg.firstword + SIZE_FLOAT64 * seg.rsize * recordnum + SIZE_FLOAT64 * 2
+    ptr = Ptr{Float64}(pointer(spk.daf.array, first))
+
+    cache = unsafe_wrap(Array, Ptr{Float64}(ptr), (seg.order, components), false)
+    if !spk.daf.little
+        transpose!(seg.cache, ntoh.(copy(cache)))
+    else
+        transpose!(seg.cache, cache)
+    end
+end
+
+@inline function chebyshev(order, intlen, frac)
+    x = Array{Float64}(order)
+    x[1] = 1.0
+    x[2] = 2.0 * frac/intlen - 1.0
+    @inbounds for i = 3:order
+        x[i] = 2.0 * x[2] * x[i-1] - x[i-2]
+    end
+    x
+end
+
+@inline function chebyshev_deriv(x, order, intlen)
+    t = zeros(Float64, order)
+    t[2] = 1.0
+    if order > 2
+        t[3] = 4.0 * x[2]
+        @inbounds for i = 4:order
+            t[i] = 2.0 * x[2] *t[i-1] - t[i-2] + x[i-1] + x[i-1]
+        end
+    end
+    t .*= 2.0
+    t ./= intlen
+end
+
+@inline function position!(r, x::AbstractArray, seg::Segment, sign::Float64)
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
             r[i] += sign * seg.cache[i, j] * x[j]
@@ -174,22 +222,17 @@ function position!(r, x::Vector, seg::Segment, sign::Float64)
     r
 end
 
-function position!(r, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
-    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
+@inline function position!(r, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
+    recordnum, frac = getrecordnum(seg, tdb, tdb2)
+    if recordnum != seg.cached_record
+        update_cache!(spk, seg, recordnum)
+    end
+    x = chebyshev(seg.order, seg.intlen, frac)
     position!(r, x, seg, sign)
 end
 
-function velocity!(v, x::Vector, dt::Float64, twotc::Float64, seg::Segment, sign::Float64)
-    t = zeros(Float64, seg.order)
-    t[2] = 1.0
-    if seg.order > 2
-        t[3] = twotc + twotc
-        @inbounds for i = 4:seg.order
-            t[i] = twotc*t[i-1] - t[i-2] + x[i-1] + x[i-1]
-        end
-    end
-    t *= 2.0
-    t /= dt
+@inline function velocity!(v, x::AbstractArray, seg::Segment, sign::Float64)
+    t = chebyshev_deriv(x, seg.order, seg.intlen)
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
             v[i] += sign * seg.cache[i, j] * t[j]
@@ -198,65 +241,52 @@ function velocity!(v, x::Vector, dt::Float64, twotc::Float64, seg::Segment, sign
     v
 end
 
-function velocity!(v, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
-    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
-    velocity!(v, x, dt, twotc, seg, sign)
+@inline function velocity!(v, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
+    recordnum, frac = getrecordnum(seg, tdb, tdb2)
+    if recordnum != seg.cached_record
+        update_cache!(spk, seg, recordnum)
+    end
+    x = chebyshev(seg.order, seg.intlen, frac)
+    velocity!(v, x, seg, sign)
 end
 
 
-function state!(s, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
-    x, dt, twotc = getcoefficients(spk, seg, tdb, tdb2)
+@inline function state!(s, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
+    recordnum, frac = getrecordnum(seg, tdb, tdb2)
+    if recordnum != seg.cached_record
+        update_cache!(spk, seg, recordnum)
+    end
+    x = chebyshev(seg.order, seg.intlen, frac)
     @views begin
         position!(s[1:3], x, seg, sign)
-        velocity!(s[4:6], x, dt, twotc, seg, sign)
+        velocity!(s[4:6], x, seg, sign)
     end
     s
 end
 
-function findsegment(segments, origin, target)
-    if origin in keys(segments) && target in keys(segments[origin])
-        sign = 1.0
-        return segments[origin][target], sign
-    elseif target in keys(segments) && origin in keys(segments[target])
-        sign = -1.0
-        return segments[target][origin], sign
-    else
+@inline function findsegment(segments, origin, target)
+    if !(origin in keys(segments) || target in keys(segments))
         error("No segment '$origin'->'$target' available.")
     end
-end
-
-function findpath(origin, target)
-    if target == parent(origin) || parent(target) == origin
-        return [origin, target]
-    elseif target == parent(parent(origin))
-        return [origin, parent(origin), target]
-    elseif origin == parent(parent(target))
-        return [origin, parent(target), target]
-    elseif parent(target) == parent(origin)
-        return [origin, parent(origin), target]
-    elseif parent(parent(target)) == parent(origin) ||
-        parent(target) == parent(parent(origin))
-        return [origin, parent(origin), parent(target), target]
-    elseif parent(parent(target)) == parent(parent(origin))
-        return [origin, parent(origin), parent(parent(origin)), parent(target), target]
+    sign = 1.0
+    if target < origin
+        origin, target = target, origin
+        sign = -1.0
     end
+    return segments[origin][target], sign
 end
 
 for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
     fmut = Symbol(f, "!")
     @eval begin
         function $fmut(arr, spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
-            path = findpath(from, to)
+            path = spk.paths[naif_id(from)][naif_id(to)]
             jd1 = julian1(ep)
             jd2 = julian2(ep)
-            if length(path) == 2
-                $fmut(arr, spk, naif_id(from), naif_id(to), jd1, jd2)
-                return arr
-            end
 
-            $fmut(arr, spk, naif_id(path[1]), naif_id(path[2]), jd1, jd2)
+            $fmut(arr, spk, path[1], path[2], jd1, jd2)
             for (origin, target) in zip(path[2:end-1], path[3:end])
-                $fmut(arr, spk, naif_id(origin), naif_id(target), jd1, jd2)
+                $fmut(arr, spk, origin, target, jd1, jd2)
             end
             arr
         end
