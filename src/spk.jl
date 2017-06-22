@@ -38,6 +38,8 @@ type Segment
     order::Int
     cached_record::Int
     cache::Matrix{Float64}
+    x::Vector{Float64}
+    t::Vector{Float64}
 end
 
 jd(sec) = 2451545 + sec/SECONDS_PER_DAY
@@ -76,6 +78,8 @@ function Segment(daf, name, record)
         order,
         -1,
         zeros(3, order),
+        zeros(order),
+        zeros(order),
     )
 end
 
@@ -190,33 +194,31 @@ end
     end
 end
 
-@inline function chebyshev(order, intlen, frac)
-    x = Array{Float64}(order)
-    x[1] = 1.0
-    x[2] = 2.0 * frac/intlen - 1.0
-    @inbounds for i = 3:order
-        x[i] = 2.0 * x[2] * x[i-1] - x[i-2]
+@inline function chebyshev!(seg, frac)
+    seg.x[1] = 1.0
+    seg.x[2] = 2.0 * frac / seg.intlen - 1.0
+    @inbounds for i = 3:seg.order
+        seg.x[i] = 2.0 * seg.x[2] * seg.x[i-1] - seg.x[i-2]
     end
-    x
 end
 
-@inline function chebyshev_deriv(x, order, intlen)
-    t = zeros(Float64, order)
-    t[2] = 1.0
-    if order > 2
-        t[3] = 4.0 * x[2]
-        @inbounds for i = 4:order
-            t[i] = 2.0 * x[2] *t[i-1] - t[i-2] + x[i-1] + x[i-1]
+@inline function chebyshev_deriv!(seg)
+    seg.t[2] = 1.0
+    if seg.order > 2
+        seg.t[3] = 4.0 * seg.x[2]
+        @inbounds for i = 4:seg.order
+            seg.t[i] = 2.0 * seg.x[2] * seg.t[i-1] - seg.t[i-2] +
+                seg.x[i-1] + seg.x[i-1]
         end
     end
-    t .*= 2.0
-    t ./= intlen
+    seg.t .*= 2.0
+    seg.t ./= seg.intlen
 end
 
-@inline function position!(r, x::AbstractArray, seg::Segment, sign::Float64)
+@inline function position!(r, seg::Segment, sign::Float64)
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
-            r[i] += sign * seg.cache[i, j] * x[j]
+            r[i] += sign * seg.cache[i, j] * seg.x[j]
         end
     end
     r
@@ -227,15 +229,15 @@ end
     if recordnum != seg.cached_record
         update_cache!(spk, seg, recordnum)
     end
-    x = chebyshev(seg.order, seg.intlen, frac)
-    position!(r, x, seg, sign)
+    chebyshev!(seg, frac)
+    position!(r, seg, sign)
 end
 
-@inline function velocity!(v, x::AbstractArray, seg::Segment, sign::Float64)
-    t = chebyshev_deriv(x, seg.order, seg.intlen)
+@inline function velocity!(v, seg::Segment, sign::Float64)
+    chebyshev_deriv!(seg)
     @inbounds @simd for i = 1:3
         for j = 1:seg.order
-            v[i] += sign * seg.cache[i, j] * t[j]
+            v[i] += sign * seg.cache[i, j] * seg.t[j]
         end
     end
     v
@@ -246,8 +248,8 @@ end
     if recordnum != seg.cached_record
         update_cache!(spk, seg, recordnum)
     end
-    x = chebyshev(seg.order, seg.intlen, frac)
-    velocity!(v, x, seg, sign)
+    chebyshev!(seg, frac)
+    velocity!(v, seg, sign)
 end
 
 
@@ -256,10 +258,10 @@ end
     if recordnum != seg.cached_record
         update_cache!(spk, seg, recordnum)
     end
-    x = chebyshev(seg.order, seg.intlen, frac)
+    chebyshev!(seg, frac)
     @views begin
-        position!(s[1:3], x, seg, sign)
-        velocity!(s[4:6], x, seg, sign)
+        position!(s[1:3], seg, sign)
+        velocity!(s[4:6], seg, sign)
     end
     s
 end
