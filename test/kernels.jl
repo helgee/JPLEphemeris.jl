@@ -12,8 +12,8 @@ function testephemeris(denum)
         target = parse(Int, target)
         center = parse(Int, center)
         index = parse(Int, index)
-        value = float(value)
-        jd = float(jd)
+        value = parse(Float64, value)
+        jd = parse(Float64, jd)
 
         if target in 14:15
             continue
@@ -28,7 +28,7 @@ function testephemeris(denum)
             # To AU and AU/day
             r = (tr - cr)/AU
 
-            passed = isapprox(r[index], value, atol=1e-13)
+            passed = isapprox(r[index], value, atol=1e-8)
             if !passed
                 @show jd
                 @show tr

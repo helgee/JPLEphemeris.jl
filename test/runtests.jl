@@ -1,4 +1,4 @@
-using Base.Test
+using Test
 using JPLEphemeris
 
 const AU = 0.149597870700000000e+09

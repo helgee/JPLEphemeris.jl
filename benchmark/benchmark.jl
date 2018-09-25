@@ -1,8 +1,9 @@
-using AstroDynBase
+using AstroBase
 using Distributions
 using JPLEphemeris
+using Random
 
-srand(430)
+Random.seed!(430)
 
 function runner(times)
     arr = zeros(6)
@@ -17,10 +18,10 @@ end
 
 function runner_ep(times)
     arr = zeros(6)
-    state!(arr, spk, times[1], Earth, Mercury)
+    state!(arr, spk, times[1], earth, mercury)
     total = 0.0
     for t in times
-        time = @elapsed state!(arr, spk, times[1], Earth, Mercury)
+        time = @elapsed state!(arr, spk, times[1], earth, mercury)
         total += time
     end
     print_time(total / n)
@@ -38,21 +39,22 @@ function print_time(time)
     end
 end
 
-spk = SPK(joinpath(Pkg.dir("JPLEphemeris"), "deps", "de430.bsp"))
+kernel = joinpath(dirname(pathof(JPLEphemeris)), "..",  "deps", "de430.bsp")
+spk = SPK(joinpath(kernel))
 seg = spk.segments[0][3]
 n = 1_000_000
 
 first = seg.firstdate
 last = seg.lastdate
-linear = collect(linspace(first, last, n))
+linear = collect(range(first, stop=last, length=n))
 d = Truncated(Normal(), first, last)
 random = rand(d, n)
 
 runner(linear)
 runner(random)
 
-linear_ep = TDBEpoch.(linear)
-random_ep = TDBEpoch.(random)
+linear_ep = TDBEpoch.(linear, origin=:julian)
+random_ep = TDBEpoch.(random, origin=:julian)
 
 runner_ep(linear_ep)
 runner_ep(random_ep)

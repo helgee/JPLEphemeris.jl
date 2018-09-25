@@ -1,7 +1,9 @@
-using AstroDynBase
+using AstroBase
 using LightGraphs
 
-import AstroDynBase: position, velocity, state, position!, velocity!, state!
+using LinearAlgebra: transpose!
+
+import AstroBase: position, velocity, state, position!, velocity!, state!
 
 export SPK, position, velocity, state, position!, velocity!, state!,
     segments, print_segments
@@ -9,7 +11,7 @@ export SPK, position, velocity, state, position!, velocity!, state!,
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
 
-type OutOfRangeError <: Exception
+struct OutOfRangeError <: Exception
     date::Float64
     startdate::Float64
     finaldate::Float64
@@ -17,7 +19,7 @@ end
 
 Base.showerror(io::IO, err::OutOfRangeError) = print(io, "The requested date $(err.date) is outside the intervall ($(err.startdate), $(err.finaldate)).")
 
-type Segment
+mutable struct Segment
     name::String
     firstsec::Float64
     lastsec::Float64
@@ -50,7 +52,7 @@ function Segment(daf, name, record)
     target, center, frame, spktype, firstaddr, lastaddr =
         reinterpret_getindex(Int32, record, (17, 21, 25, 29, 33, 37), daf.little)
     if spktype != 2
-        error("Type $spktype SPK file detected. Only Type 2 SPK files are supported.")
+        throw(ArgumentError("Type $spktype SPK file detected. Only Type 2 SPK files are supported."))
     end
     i0 = lastaddr * SIZE_FLOAT64 - 4 * SIZE_FLOAT64 + 1
     init, intlen, rsize, n_records =
@@ -83,7 +85,7 @@ function Segment(daf, name, record)
     )
 end
 
-type SPK <: Ephemeris
+struct SPK <: AbstractEphemeris
     daf::DAF
     segments::Dict{Int,Dict{Int,Segment}}
     paths::Dict{Int,Dict{Int,Vector{Int}}}
@@ -186,7 +188,7 @@ end
     first = seg.firstword + SIZE_FLOAT64 * seg.rsize * recordnum + SIZE_FLOAT64 * 2
     ptr = Ptr{Float64}(pointer(spk.daf.array, first))
 
-    cache = unsafe_wrap(Array, Ptr{Float64}(ptr), (seg.order, components), false)
+    cache = unsafe_wrap(Array, Ptr{Float64}(ptr), (seg.order, components), own=false)
     if !spk.daf.little
         transpose!(seg.cache, ntoh.(copy(cache)))
     else
@@ -268,7 +270,7 @@ end
 
 @inline function findsegment(segments, origin, target)
     if !(origin in keys(segments) || target in keys(segments))
-        error("No segment '$origin'->'$target' available.")
+        throw(ArgumentError("No segment '$origin'->'$target' available."))
     end
     sign = 1.0
     if target < origin
@@ -281,10 +283,9 @@ end
 for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
     fmut = Symbol(f, "!")
     @eval begin
-        function $fmut(arr, spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
-            path = spk.paths[naif_id(from)][naif_id(to)]
-            jd1 = julian1(ep)
-            jd2 = julian2(ep)
+        function $fmut(arr, spk::SPK, ep::TDBEpoch, from::CelestialBody, to::CelestialBody)
+            path = spk.paths[naifid(from)][naifid(to)]
+            jd1, jd2 = get.(julian_split(ep))
 
             $fmut(arr, spk, path[1], path[2], jd1, jd2)
             for (origin, target) in zip(path[2:end-1], path[3:end])
@@ -293,7 +294,7 @@ for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
             arr
         end
 
-        function $f(spk::SPK, ep::TDBEpoch, from::Type{C1}, to::Type{C2}) where {C1<:CelestialBody, C2<:CelestialBody}
+        function $f(spk::SPK, ep::TDBEpoch, from::CelestialBody, to::CelestialBody)
             arr = zeros($n)
             $fmut(arr, spk, ep, from, to)
         end

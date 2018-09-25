@@ -1,4 +1,6 @@
-type DAF
+using Mmap
+
+struct DAF
     filename::String
     array::Vector{UInt8}
     little::Bool
@@ -22,14 +24,14 @@ getrecord(daf::DAF, n) = getrecord(daf.array, n)
 
 function DAF(filename)
     if !isfile(filename)
-        error("'$filename' does not exist.")
+        throw(ArgumentError("'$filename' does not exist."))
     end
     array = Mmap.mmap(filename, Vector{UInt8})
     fr = readfilerecord(getrecord(array, 1))
     DAF(filename, array, fr...)
 end
 
-@inline function reinterpret_getindex{T}(::Type{T}, b::Vector{UInt8}, i, le::Bool)
+@inline function reinterpret_getindex(::Type{T}, b::Vector{UInt8}, i, le::Bool) where T
     # Read in host endian
     @boundscheck if i + sizeof(T) - 1 > length(b)
         throw(BoundsError(b, i + sizeof(T) - 1))
@@ -38,9 +40,9 @@ end
     return le ? htol(v) : hton(v)
 end
 
-@inline function reinterpret_getindex{N,T}(::Type{T}, b::Vector{UInt8},
-                                           idxs::NTuple{N,Int}, le::Bool)
-    @inbounds return ntuple(i->reinterpret_getindex(T, b, idxs[i], le), Val{N})
+@inline function reinterpret_getindex(::Type{T}, b::Vector{UInt8},
+                                      idxs::NTuple{N,Int}, le::Bool) where {N, T}
+    @inbounds return ntuple(i->reinterpret_getindex(T, b, idxs[i], le), Val(N))
 end
 
 function readint(record, address, littleendian=true)

@@ -1,3 +1,5 @@
+import AstroBase: naifid
+
 const NAIF_IDS = Dict{String, Int}(
     "SOLAR_SYSTEM_BARYCENTER" => 0,
     "SSB"                     => 0,
@@ -581,7 +583,7 @@ function name_from_naifid(searchid::Int)
         return "EARTH-MOON BARYCENTER"
     end
     for (name, id) in NAIF_IDS
-        if searchid == id && !contains(name, "_")
+        if searchid == id && !occursin("_", name)
             return name
         end
     end

@@ -1,5 +1,6 @@
-import AstroDynBase: TDBEpoch, MercuryBarycenter, SSB, Earth, Moon,
-    EarthBarycenter, Mercury
+import AstroBase: TDBEpoch, mercury_barycenter, ssb, earth, moon,
+    earth_barycenter, mercury
+using Dates: DateTime, datetime2julian
 
 # Reference value from CSPICE
 r_ref = [4.250906022073639e7, 2.3501057648129586e7, 8.158467467032234e6]
@@ -22,8 +23,8 @@ de430segments = [
     "EARTH-MOON BARYCENTER (3) => MOON (301)",
     "EARTH-MOON BARYCENTER (3) => EARTH (399)",
 ]
-jd = Dates.datetime2julian(DateTime(2016,1,1,0,0,0))
-ep = TDBEpoch(jd)
+jd = datetime2julian(DateTime(2016,1,1,0,0,0))
+ep = TDBEpoch(jd, origin=:julian)
 spk = SPK("$path/de430.bsp")
 
 @testset "API" begin
@@ -58,7 +59,7 @@ spk = SPK("$path/de430.bsp")
         @test all(res .≈ ref)
         res = func(spk, 0, 1, jd)
         @test all(res .≈ ref)
-        res = func.(spk, 0, 1, [jd; jd])
+        res = func.(Ref(spk), 0, 1, [jd; jd])
         @test all(all.(map(x->x .≈ ref, res)))
         res = func(spk, "mercury barycenter", jd, 0.0)
         @test all(res .≈ ref)
@@ -72,19 +73,19 @@ spk = SPK("$path/de430.bsp")
         @test all(res .≈ ref)
         res = func(spk, 0, 1, jd, 0.0)
         @test all(res .≈ ref)
-        res = func.(spk, 0, 1, [jd; jd], [0.0, 0.0])
+        res = func.(Ref(spk), 0, 1, [jd; jd], [0.0, 0.0])
         @test all(all.(map(x->x .≈ ref, res)))
 
-        res = func(spk, ep, SSB, MercuryBarycenter)
+        res = func(spk, ep, ssb, mercury_barycenter)
         @test all(res .≈ ref)
-        res = func(spk, ep, MercuryBarycenter, SSB)
+        res = func(spk, ep, mercury_barycenter, ssb)
         @test all(res .≈ -1 .* ref)
 
-        res = func(spk, ep, Earth, Mercury)
-        exp = func(spk, ep, Earth, EarthBarycenter) .+
-            func(spk, ep, EarthBarycenter, SSB) .+
-            func(spk, ep, SSB, MercuryBarycenter) .+
-            func(spk, ep, MercuryBarycenter, Mercury)
+        res = func(spk, ep, earth, mercury)
+        exp = func(spk, ep, earth, earth_barycenter) .+
+            func(spk, ep, earth_barycenter, ssb) .+
+            func(spk, ep, ssb, mercury_barycenter) .+
+            func(spk, ep, mercury_barycenter, mercury)
         @test all(res .≈ exp)
     end
 end
