@@ -1,5 +1,5 @@
 using LinearAlgebra: transpose!
-using AstroBase: NAIFId, TDBEpoch, from_naifid, julian_twopart, value
+using AstroBase: NAIFId, TDBEpoch, from_naifid, julian_twopart, value, SECONDS_PER_DAY
 
 import AstroBase.Interfaces:
     AbstractEphemeris,
@@ -20,7 +20,6 @@ export SPK,
     position_velocity,
     position_velocity!
 
-const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
 
 struct OutOfRangeError <: Exception
@@ -57,8 +56,8 @@ mutable struct Segment
     t::Vector{Float64}
 end
 
-jd(sec) = 2451545 + sec/SECONDS_PER_DAY
-seconds(jd) = (jd - 2451545)*SECONDS_PER_DAY
+jd(sec) = 2451545.0 + sec / SECONDS_PER_DAY
+seconds(jd) = (jd - 2451545.0) * SECONDS_PER_DAY
 
 function Segment(daf, name, record)
     firstsec, lastsec = reinterpret_getindex(Float64, record, (1, 9), daf.little)
@@ -128,7 +127,7 @@ function list_segments(spk::SPK)
             push!(s, "$(from_naifid(k)) ($k) => $(from_naifid(l)) ($l)")
         end
     end
-    return sort!(s, lt=segstrlt)
+    sort!(s, lt=segstrlt)
 end
 
 function print_segments(spk::SPK)

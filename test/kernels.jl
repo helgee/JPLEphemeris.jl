@@ -22,21 +22,11 @@ function testephemeris(denum)
         end
 
         try
-            #= tr = teststate(ephem, jd, target) =#
-            #= cr = teststate(ephem, jd, center) =#
-            #= # From km/s to km/day =#
-            #= tr[4:6] *= 86400 =#
-            #= cr[4:6] *= 86400 =#
-            #= # To AU and AU/day =#
-            #= r = (tr - cr)/AU =#
-
             r = teststate(ephem, jd, center, target)
 
             passed = isapprox(r[index], value, atol=1e-8)
             if !passed
                 @show jd
-                #= @show tr =#
-                #= @show cr =#
                 @show r
                 @show target
                 @show center

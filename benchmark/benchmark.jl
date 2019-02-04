@@ -5,23 +5,13 @@ using Random
 
 Random.seed!(430)
 
-function runner(times)
-    arr = zeros(6)
-    state!(arr, spk, seg, 1.0, times[1])
-    total = 0.0
-    for t in times
-        time = @elapsed state!(arr, spk, seg, 1.0, t)
-        total += time
-    end
-    print_time(total / n)
-end
-
 function runner_ep(times)
-    arr = zeros(6)
-    state!(arr, spk, times[1], earth, mercury)
+    pos = zeros(3)
+    vel = zeros(3)
+    position_velocity!(pos, vel, spk, times[1], luna, mercury)
     total = 0.0
     for t in times
-        time = @elapsed state!(arr, spk, times[1], earth, mercury)
+        time = @elapsed position_velocity!(pos, vel, spk, t, luna, mercury)
         total += time
     end
     print_time(total / n)
@@ -49,9 +39,6 @@ last = seg.lastdate
 linear = collect(range(first, stop=last, length=n))
 d = Truncated(Normal(), first, last)
 random = rand(d, n)
-
-runner(linear)
-runner(random)
 
 linear_ep = TDBEpoch.(linear, origin=:julian)
 random_ep = TDBEpoch.(random, origin=:julian)

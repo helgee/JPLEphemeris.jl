@@ -42,7 +42,7 @@ end
 
 @inline function reinterpret_getindex(::Type{T}, b::Vector{UInt8},
                                       idxs::NTuple{N,Int}, le::Bool) where {N, T}
-    @inbounds return ntuple(i->reinterpret_getindex(T, b, idxs[i], le), Val(N))
+    @inbounds ntuple(i->reinterpret_getindex(T, b, idxs[i], le), Val(N))
 end
 
 function readint(record, address, littleendian=true)
