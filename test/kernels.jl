@@ -1,3 +1,5 @@
+using AstroBase: TDBEpoch, from_naifid, ssb, sun, luna, earth_barycenter, earth
+
 function testephemeris(denum)
     ephem = SPK("$path/de$denum.bsp")
     if isfile("$path/testpo.$denum")
@@ -13,26 +15,28 @@ function testephemeris(denum)
         center = parse(Int, center)
         index = parse(Int, index)
         value = parse(Float64, value)
-        jd = parse(Float64, jd)
+        jd = TDBEpoch(parse(Float64, jd), origin=:julian)
 
         if target in 14:15
             continue
         end
 
         try
-            tr = teststate(ephem, jd, target)
-            cr = teststate(ephem, jd, center)
-            # From km/s to km/day
-            tr[4:6] *= 86400
-            cr[4:6] *= 86400
-            # To AU and AU/day
-            r = (tr - cr)/AU
+            #= tr = teststate(ephem, jd, target) =#
+            #= cr = teststate(ephem, jd, center) =#
+            #= # From km/s to km/day =#
+            #= tr[4:6] *= 86400 =#
+            #= cr[4:6] *= 86400 =#
+            #= # To AU and AU/day =#
+            #= r = (tr - cr)/AU =#
+
+            r = teststate(ephem, jd, center, target)
 
             passed = isapprox(r[index], value, atol=1e-8)
             if !passed
                 @show jd
-                @show tr
-                @show cr
+                #= @show tr =#
+                #= @show cr =#
                 @show r
                 @show target
                 @show center
@@ -54,25 +58,24 @@ function testephemeris(denum)
     end
 end
 
-function teststate(kernel, tbd, target)
-    if target == 3
-        rv1 = state(kernel, 0, 3, tbd)
-        rv2 = state(kernel, 3, 399, tbd)
-        rv = rv1 .+ rv2
-    elseif target == 10
-        rv1 = state(kernel, 0, 3, tbd)
-        rv2 = state(kernel, 3, 301, tbd)
-        rv = rv1 .+ rv2
-    elseif target == 11
-        rv = state(kernel, 0, 10, tbd)
-    elseif target == 12
-        rv = zeros(6)
-    elseif target == 13
-        rv = state(kernel, 0, 3, tbd)
-    else
-        rv = state(kernel, 0, target, tbd)
-    end
-    return vcat(rv...)
+function id_to_body(id)
+    id == 3 && return earth
+    id == 10 && return luna
+    id == 11 && return sun
+    id == 12 && return ssb
+    id == 13 && return earth_barycenter
+
+    from_naifid(id)
+end
+
+function teststate(kernel, tdb, origin, target)
+    origin = id_to_body(origin)
+    target = id_to_body(target)
+    rv = vcat(position_velocity(kernel, tdb, origin, target)...)
+    # From km/s to km/day
+    rv[4:6] .*= 86400.0
+    # From km to AU
+    rv./AU
 end
 
 # Run the JPL testsuite for every installed ephemeris.

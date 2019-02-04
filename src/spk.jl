@@ -1,12 +1,24 @@
-using AstroBase
-using LightGraphs
-
 using LinearAlgebra: transpose!
+using AstroBase: NAIFId, TDBEpoch, from_naifid, julian_twopart, value
 
-import AstroBase: position, velocity, state, position!, velocity!, state!
+import AstroBase.Interfaces:
+    AbstractEphemeris,
+    position,
+    position!,
+    velocity,
+    velocity!,
+    position_velocity,
+    position_velocity!
 
-export SPK, position, velocity, state, position!, velocity!, state!,
-    segments, print_segments
+export SPK,
+    segments,
+    print_segments,
+    position,
+    position!,
+    velocity,
+    velocity!,
+    position_velocity,
+    position_velocity!
 
 const SECONDS_PER_DAY = 86400
 const SIZE_FLOAT64 = sizeof(Float64)
@@ -17,7 +29,8 @@ struct OutOfRangeError <: Exception
     finaldate::Float64
 end
 
-Base.showerror(io::IO, err::OutOfRangeError) = print(io, "The requested date $(err.date) is outside the intervall ($(err.startdate), $(err.finaldate)).")
+Base.showerror(io::IO, err::OutOfRangeError) = print(io,
+   "The requested date $(err.date) is outside the interval ($(err.startdate), $(err.finaldate)).")
 
 mutable struct Segment
     name::String
@@ -88,7 +101,6 @@ end
 struct SPK <: AbstractEphemeris
     daf::DAF
     segments::Dict{Int,Dict{Int,Segment}}
-    paths::Dict{Int,Dict{Int,Vector{Int}}}
 end
 
 Base.show(io::IO, spk::SPK) = print(io, "SPK($(spk.segments[0][1].name))")
@@ -96,9 +108,6 @@ Base.show(io::IO, spk::SPK) = print(io, "SPK($(spk.segments[0][1].name))")
 function SPK(filename)
     daf = DAF(filename)
     segments = Dict{Int, Dict{Int, Segment}}()
-    graph = Graph()
-    to_id = Dict{Int,Int}()
-    to_body = Dict{Int,Int}()
     for (name, summary) in getsummaries(daf)
         seg = Segment(daf, name, summary)
         if haskey(segments, seg.center)
@@ -106,35 +115,8 @@ function SPK(filename)
         else
             merge!(segments, Dict(seg.center=>Dict(seg.target=>seg)))
         end
-
-        if !(seg.center in keys(to_id))
-            add_vertex!(graph)
-            merge!(to_id, Dict(seg.center=>nv(graph)))
-            merge!(to_body, Dict(nv(graph)=>seg.center))
-        end
-        if !(seg.target in keys(to_id))
-            add_vertex!(graph)
-            merge!(to_id, Dict(seg.target=>nv(graph)))
-            merge!(to_body, Dict(nv(graph)=>seg.target))
-        end
-        add_edge!(graph, to_id[seg.center], to_id[seg.target])
     end
-
-    paths = Dict{Int,Dict{Int,Vector{Int}}}()
-    for (origin, oid) in to_id
-        d = dijkstra_shortest_paths(graph, oid)
-        for (target, tid) in to_id
-            origin == target && continue
-            path = map(x->to_body[x], enumerate_paths(d, tid))
-            if haskey(paths, origin)
-                merge!(paths[origin], Dict(target=>path))
-            else
-                merge!(paths, Dict(origin=>Dict(target=>path)))
-            end
-        end
-    end
-
-    SPK(daf, segments, paths)
+    SPK(daf, segments)
 end
 
 segments(spk::SPK) = spk.segments
@@ -143,7 +125,7 @@ function list_segments(spk::SPK)
     s = String[]
     for (k,v) in spk.segments
         for l in keys(v)
-            push!(s, "$(name_from_naifid(k)) ($k) => $(name_from_naifid(l)) ($l)")
+            push!(s, "$(from_naifid(k)) ($k) => $(from_naifid(l)) ($l)")
         end
     end
     return sort!(s, lt=segstrlt)
@@ -160,7 +142,7 @@ function segstrlt(a::String, b::String)
    mb = match(rex, b)
    ia = parse(Int, a[ma.offset+1:end-1])
    ib = parse(Int, b[mb.offset+1:end-1])
-   return ia < ib
+   ia < ib
 end
 
 @inline function checkdate(seg::Segment, tdb::Float64)
@@ -255,17 +237,21 @@ end
 end
 
 
-@inline function state!(s, spk::SPK, seg::Segment, sign::Float64, tdb::Float64, tdb2::Float64=0.0)
+@inline function position_velocity!(pos,
+                                    vel,
+                                    spk::SPK,
+                                    seg::Segment,
+                                    sign::Float64,
+                                    tdb::Float64,
+                                    tdb2::Float64=0.0)
     recordnum, frac = getrecordnum(seg, tdb, tdb2)
     if recordnum != seg.cached_record
         update_cache!(spk, seg, recordnum)
     end
     chebyshev!(seg, frac)
-    @views begin
-        position!(s[1:3], seg, sign)
-        velocity!(s[4:6], seg, sign)
-    end
-    s
+    position!(pos, seg, sign)
+    velocity!(vel, seg, sign)
+    pos, vel
 end
 
 @inline function findsegment(segments, origin, target)
@@ -277,58 +263,25 @@ end
         origin, target = target, origin
         sign = -1.0
     end
-    return segments[origin][target], sign
+    segments[origin][target], sign
 end
 
-for (f, n) in zip((:state, :velocity, :position), (6, 3, 3))
-    fmut = Symbol(f, "!")
-    @eval begin
-        function $fmut(arr, spk::SPK, ep::TDBEpoch, from::CelestialBody, to::CelestialBody)
-            path = spk.paths[naifid(from)][naifid(to)]
-            jd1, jd2 = get.(julian_split(ep))
 
-            $fmut(arr, spk, path[1], path[2], jd1, jd2)
-            for (origin, target) in zip(path[2:end-1], path[3:end])
-                $fmut(arr, spk, origin, target, jd1, jd2)
-            end
-            arr
-        end
-
-        function $f(spk::SPK, ep::TDBEpoch, from::CelestialBody, to::CelestialBody)
-            arr = zeros($n)
-            $fmut(arr, spk, ep, from, to)
-        end
-
-        function $fmut(arr, spk::SPK, center::Int, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            seg, sign = findsegment(spk.segments, center, target)
-            $fmut(arr, spk, seg, sign, tdb, tdb2)
-        end
-
-        function $fmut(arr, spk::SPK, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            seg = spk.segments[0][target]
-            $fmut(arr, spk, seg, 1.0, tdb, tdb2)
-        end
-
-        function $fmut(arr, spk::SPK, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $fmut(arr, spk, naifid(target), tdb, tdb2)
-        end
-
-        function $fmut(arr, spk::SPK, center::AbstractString, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $fmut(arr, spk, naifid(center), naifid(target), tdb, tdb2)
-        end
-
-        function $fmut(arr, spk::SPK, center::Int, target::AbstractString, tdb::Float64, tdb2::Float64=0.0)
-            $fmut(arr, spk, center, naifid(target), tdb, tdb2)
-        end
-
-        function $fmut(arr, spk::SPK, center::AbstractString, target::Int, tdb::Float64, tdb2::Float64=0.0)
-            $fmut(arr, spk, naifid(center), target, tdb, tdb2)
-        end
-
-        $f(spk::SPK, target, tdb::Float64, tdb2::Float64=0.0) =
-            $fmut(zeros($n), spk, target, tdb, tdb2)
-
-        $f(spk::SPK, center, target, tdb::Float64, tdb2::Float64=0.0) =
-            $fmut(zeros($n), spk, center, target, tdb, tdb2)
-    end
+function position!(pos, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+    seg, sign = findsegment(spk.segments, from, to)
+    jd1, jd2 = value.(julian_twopart(ep))
+    position!(pos, spk, seg, sign, jd1, jd2)
 end
+
+function velocity!(vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+    seg, sign = findsegment(spk.segments, from, to)
+    jd1, jd2 = value.(julian_twopart(ep))
+    velocity!(vel, spk, seg, sign, jd1, jd2)
+end
+
+function position_velocity!(pos, vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+    seg, sign = findsegment(spk.segments, from, to)
+    jd1, jd2 = value.(julian_twopart(ep))
+    position_velocity!(pos, vel, spk, seg, sign, jd1, jd2)
+end
+

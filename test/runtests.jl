@@ -26,5 +26,7 @@ for denum in (430, 405)
     end
 end
 
-include("basic.jl")
-include("kernels.jl")
+@testset "JPLEphemeris" begin
+    include("basic.jl")
+    include("kernels.jl")
+end

@@ -37,7 +37,7 @@ end
         throw(BoundsError(b, i + sizeof(T) - 1))
     end
     v = unsafe_load(Ptr{T}(pointer(b, i)))
-    return le ? htol(v) : hton(v)
+    le ? htol(v) : hton(v)
 end
 
 @inline function reinterpret_getindex(::Type{T}, b::Vector{UInt8},
@@ -65,10 +65,10 @@ function islittleendian(record, legacy)
         else
             error("Endianess could not be detected.")
         end
-    else
-        endianess = readascii(record, 88, 8)
-        return endianess == "LTL-IEEE"
     end
+
+    endianess = readascii(record, 88, 8)
+    endianess == "LTL-IEEE"
 end
 
 function readfilerecord(record)
@@ -88,12 +88,12 @@ function readfilerecord(record)
             error("This DAF file is damaged.")
         end
     end
-    return little, id, nd, ni, name, first, last, ss, nc
+    little, id, nd, ni, name, first, last, ss, nc
 end
 
 function summaryheader(record, little)
     next, nsum = reinterpret_getindex(Float64, record, (1, 17), little)
-    return round(Int32, next), round(Int32, nsum)
+    round(Int32, next), round(Int32, nsum)
 end
 
 function addsummaries!(summaries, record, names, nsum, ss, nc)
@@ -117,5 +117,5 @@ function getsummaries(daf::DAF)
         next, nsum = summaryheader(record, daf.little)
         addsummaries!(summaries, record, names, nsum, daf.ss, daf.nc)
     end
-    return summaries
+    summaries
 end
