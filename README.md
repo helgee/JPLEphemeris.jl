@@ -57,7 +57,7 @@ The ASCII API that was originally included with this package has been moved to [
 The package's test suite uses test files provided by JPL to confirm that the results are correct.
 
 ## Acknowlegements
-Most of this is based on the excellent [jplehem][jplephem] library by [Brandon Rhodes][br].
+Most of this is based on the excellent [jplephem][jplephem] library by [Brandon Rhodes][br].
 Please use it if you need similar functionality in Python.
 
 [jpl]: http://en.wikipedia.org/wiki/Jet_Propulsion_Laboratory_Development_Ephemeris
