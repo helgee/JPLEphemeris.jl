@@ -33,7 +33,7 @@ spk = SPK("$path/de430.bsp")
     @testset for (a, b) in zip(JPLEphemeris.list_segments(spk), de430segments)
         @test a == b
     end
-    @testset for (func, ref) in zip((position, velocity, position_velocity), (r_ref, v_ref, rv_ref))
+    @testset for (func, ref) in zip((position, velocity, state), (r_ref, v_ref, rv_ref))
         res = func(spk, ep, ssb, mercury_barycenter)
         @test all(res .≈ ref)
         res = func(spk, ep, mercury_barycenter, ssb)

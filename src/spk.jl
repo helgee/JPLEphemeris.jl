@@ -1,14 +1,14 @@
 using LinearAlgebra: transpose!
 using AstroBase: NAIFId, TDBEpoch, from_naifid, julian_twopart, value, SECONDS_PER_DAY
 
-import AstroBase.Interfaces:
+import AstroBase.Ephemerides:
     AbstractEphemeris,
     position,
     position!,
     velocity,
     velocity!,
-    position_velocity,
-    position_velocity!
+    state,
+    state!
 
 export SPK,
     segments,
@@ -17,8 +17,8 @@ export SPK,
     position!,
     velocity,
     velocity!,
-    position_velocity,
-    position_velocity!
+    state,
+    state!
 
 const SIZE_FLOAT64 = sizeof(Float64)
 
@@ -236,7 +236,7 @@ end
 end
 
 
-@inline function position_velocity!(pos,
+@inline function state!(pos,
                                     vel,
                                     spk::SPK,
                                     seg::Segment,
@@ -265,7 +265,6 @@ end
     segments[origin][target], sign
 end
 
-
 function position!(pos, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
     seg, sign = findsegment(spk.segments, from, to)
     jd1, jd2 = value.(julian_twopart(ep))
@@ -278,9 +277,9 @@ function velocity!(vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
     velocity!(vel, spk, seg, sign, jd1, jd2)
 end
 
-function position_velocity!(pos, vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+function state!(pos, vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
     seg, sign = findsegment(spk.segments, from, to)
     jd1, jd2 = value.(julian_twopart(ep))
-    position_velocity!(pos, vel, spk, seg, sign, jd1, jd2)
+    state!(pos, vel, spk, seg, sign, jd1, jd2)
 end
 

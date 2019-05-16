@@ -8,10 +8,10 @@ Random.seed!(430)
 function runner_ep(times)
     pos = zeros(3)
     vel = zeros(3)
-    position_velocity!(pos, vel, spk, times[1], luna, mercury)
+    state!(pos, vel, spk, times[1], luna, mercury)
     total = 0.0
     for t in times
-        time = @elapsed position_velocity!(pos, vel, spk, t, luna, mercury)
+        time = @elapsed state!(pos, vel, spk, t, luna, mercury)
         total += time
     end
     print_time(total / n)
