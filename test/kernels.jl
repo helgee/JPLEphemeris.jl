@@ -62,9 +62,9 @@ function teststate(kernel, tdb, origin, target)
     origin = id_to_body(origin)
     target = id_to_body(target)
     rv = vcat(state(kernel, tdb, origin, target)...)
-    # From km/s to km/day
+    # From m/s to m/day
     rv[4:6] .*= 86400.0
-    # From km to AU
+    # From m to AU
     rv./AU
 end
 

@@ -1,5 +1,5 @@
 using LinearAlgebra: transpose!
-using AstroBase: NAIFId, TDBEpoch, from_naifid, julian_twopart, value, SECONDS_PER_DAY
+using AstroBase: NAIFId, Epoch, TDBEpoch, from_naifid, julian_twopart, value, SECONDS_PER_DAY
 
 import AstroBase.Ephemerides:
     AbstractEphemeris,
@@ -265,21 +265,21 @@ end
     segments[origin][target], sign
 end
 
-function position!(pos, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+function position!(pos, spk::SPK, ep::Epoch, from::NAIFId, to::NAIFId)
     seg, sign = findsegment(spk.segments, from, to)
-    jd1, jd2 = value.(julian_twopart(ep))
+    jd1, jd2 = value.(julian_twopart(TDBEpoch(ep)))
     position!(pos, spk, seg, sign, jd1, jd2)
 end
 
-function velocity!(vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+function velocity!(vel, spk::SPK, ep::Epoch, from::NAIFId, to::NAIFId)
     seg, sign = findsegment(spk.segments, from, to)
-    jd1, jd2 = value.(julian_twopart(ep))
+    jd1, jd2 = value.(julian_twopart(TDBEpoch(ep)))
     velocity!(vel, spk, seg, sign, jd1, jd2)
 end
 
-function state!(pos, vel, spk::SPK, ep::TDBEpoch, from::NAIFId, to::NAIFId)
+function state!(pos, vel, spk::SPK, ep::Epoch, from::NAIFId, to::NAIFId)
     seg, sign = findsegment(spk.segments, from, to)
-    jd1, jd2 = value.(julian_twopart(ep))
+    jd1, jd2 = value.(julian_twopart(TDBEpoch(ep)))
     state!(pos, vel, spk, seg, sign, jd1, jd2)
 end
 

@@ -1,7 +1,7 @@
 using Test
 using JPLEphemeris
 
-const AU = 0.149597870700000000e+09
+using AstroBase: AU
 
 const SPK_URL = Dict{Int, String}(
     430 => "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp",
