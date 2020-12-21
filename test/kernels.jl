@@ -1,4 +1,3 @@
-using AstroBase: TDBEpoch, from_naifid, ssb, sun, luna, earth_barycenter, earth
 
 function testephemeris(denum)
     ephem = SPK("$path/de$denum.bsp")
@@ -15,7 +14,7 @@ function testephemeris(denum)
         center = parse(Int, center)
         index = parse(Int, index)
         value = parse(Float64, value)
-        jd = TDBEpoch(parse(Float64, jd), origin=:julian)
+        jd = TDBEpoch(parse(Float64, jd)*days, origin=:julian)
 
         if target in 14:15
             continue
@@ -24,7 +23,7 @@ function testephemeris(denum)
         try
             r = teststate(ephem, jd, center, target)
 
-            passed = isapprox(r[index], value, atol=1e-8)
+            passed = isapprox(r[index], value, atol=1e-11, rtol=1e-10)
             if !passed
                 @show jd
                 @show r
@@ -62,10 +61,10 @@ function teststate(kernel, tdb, origin, target)
     origin = id_to_body(origin)
     target = id_to_body(target)
     rv = vcat(state(kernel, tdb, origin, target)...)
-    # From m/s to m/day
+    # From km/s to km/day
     rv[4:6] .*= 86400.0
-    # From m to AU
-    rv./AU
+    # From km to AU - AU is in m
+    rv ./ AU
 end
 
 # Run the JPL testsuite for every installed ephemeris.
