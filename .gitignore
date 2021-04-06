@@ -4,3 +4,4 @@
 *.4*
 *.bsp
 Manifest.toml
+.vscode

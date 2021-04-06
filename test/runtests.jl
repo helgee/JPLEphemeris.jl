@@ -1,7 +1,9 @@
 using Test
 using JPLEphemeris
 
-using AstroBase: AU
+using AstroBase
+
+const AU = astronomical_unit(Float64, KiloMeter())[1]
 
 const SPK_URL = Dict{Int, String}(
     430 => "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp",
